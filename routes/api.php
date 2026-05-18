@@ -10,7 +10,8 @@ use App\Http\Controllers\Api\MachineController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\AttendenceController;
-
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\PermissionController;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/test', function(){
@@ -33,7 +34,19 @@ use App\Http\Controllers\UserController;
 
 // Route::post('/login', [UserController::class, 'login']);
 Route::get('/welcome2', [UserController::class, 'welcome2']);
-
+//roles routes
+Route::prefix('roles')->group(function () {
+    Route::get('/all', [RoleController::class, 'index']);
+    Route::post('/add', [RoleController::class, 'store']);
+    Route::get('/edit/{id}', [RoleController::class, 'show']);
+    Route::put('/update/{id}', [RoleController::class, 'update']);
+    Route::delete('/delete/{id}', [RoleController::class, 'destroy']);
+});
+//permissions routes
+Route::get('permissions/all', [PermissionController::class, 'getAllPermissions']);
+Route::get('role-permissions/{id}', [PermissionController::class, 'getRolePermissions']);
+Route::post('permissions/sync', [PermissionController::class, 'syncPermissions']);
+// Factory Routes
 Route::prefix('factories')->group(function () {
 
     Route::get('allfactories', [FactoryController::class, 'index']);
@@ -43,7 +56,7 @@ Route::prefix('factories')->group(function () {
     Route::delete('deletefactory/{id}', [FactoryController::class, 'destroy']);
 
 });
-
+// user routes
 Route::prefix('users')->group(function () {
 
     Route::get('all', [UserController::class, 'index']);        // Show all users

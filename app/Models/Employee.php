@@ -13,4 +13,10 @@ class Employee extends Model
         'timestamp',
         'user_id'
     ];
+    // app/Models/Employee.php
+
+public function user() {
+    // Yeh batata hai ke har employee ek user se belong karta hai
+    return $this->belongsTo(User::class, 'user_id'); 
+}
 }

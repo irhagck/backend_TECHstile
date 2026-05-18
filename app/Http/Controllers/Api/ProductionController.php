@@ -9,10 +9,20 @@ use App\Models\Production;
 class ProductionController extends Controller
 {
     // 1. Show all productions
-    public function index()
-    {
-        return response()->json(Production::all(), 200);
-    }
+public function index() 
+{
+    // Eager loading multiple relationships:
+    // 1. factory (Factory name ke liye)
+    // 2. employee.user (User name ke liye)
+    // 3. machine (Machine ID/Type ke liye)
+    $productions = Production::with(['factory', 'employee.user', 'machine'])->get();
+
+    return response()->json($productions, 200);
+}
+    // public function index()
+    // {
+    //     return response()->json(Production::all(), 200);
+    // }
 
     // 2. Add production
     public function store(Request $request)
