@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Machine;
+use App\Models\User;
+use App\Models\Employee;
+use App\Models\Factory;
+use App\Models\Production;
 
 class MachineController extends Controller
 {
@@ -103,4 +107,72 @@ class MachineController extends Controller
             'message' => 'Machine deleted successfully'
         ]);
     }
+    // 🔹 Machine details
+   public function details($id)
+{
+    $machine = Machine::find($id);
+
+    if (!$machine) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Machine not found'
+        ], 404);
+    }
+
+   $production = Production::where(
+    'machine_id',
+    $id
+)->latest()->first();
+
+$employeeName = null;
+$factoryName = null;
+
+if ($production) {
+
+    $employee = Employee::find(
+        $production->employee_id
+    );
+
+    if ($employee) {
+
+        $user = User::find(
+            $employee->user_id
+        );
+
+        $employeeName = $user?->name;
+    }
+
+    $factory = Factory::find(
+        $production->factory_id
+    );
+
+    $factoryName = $factory?->name;
+}
+    return response()->json([
+        'status' => true,
+
+        'machine' => $machine,
+
+        'employee_name' =>
+            $employeeName,
+
+        'factory_name' =>
+            $factoryName,
+
+        'variety' =>
+            $production?->variety_type,
+
+        'ready_production' =>
+            $production?->ready_production,
+
+        'assign_date' =>
+            $production?->shift_start,
+
+        'machine_status' =>
+            $machine->machine_status,
+
+        'total_production' =>
+            $production?->total_length,
+    ]);
+}
 }

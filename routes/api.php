@@ -35,12 +35,21 @@ use App\Http\Controllers\UserController;
 // Route::post('/login', [UserController::class, 'login']);
 Route::get('/welcome2', [UserController::class, 'welcome2']);
 //roles routes
+// Route::middleware('auth:sanctum')->group(function () {
+    
+// });
+
 Route::prefix('roles')->group(function () {
     Route::get('/all', [RoleController::class, 'index']);
+   // ->middleware('permission:view roles');
     Route::post('/add', [RoleController::class, 'store']);
+    //->middleware('permission:create roles');
     Route::get('/edit/{id}', [RoleController::class, 'show']);
+    //->middleware('permission:view roles');
     Route::put('/update/{id}', [RoleController::class, 'update']);
+    //->middleware('permission:update roles');
     Route::delete('/delete/{id}', [RoleController::class, 'destroy']);
+    //->middleware('permission:delete roles');
 });
 //permissions routes
 Route::get('permissions/all', [PermissionController::class, 'getAllPermissions']);
@@ -106,3 +115,8 @@ Route::prefix('attendence')->group(function () {
     Route::delete('/delete_attendence/{id}', [AttendenceController::class, 'destroy']); 
 
 });
+// Machine details route
+Route::get(
+    '/machines/details/{id}',
+    [MachineController::class, 'details']
+);
