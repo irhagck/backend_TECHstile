@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\FactoryController;
 use App\Http\Controllers\Api\MachineController;
 use App\Http\Controllers\Api\ProductionController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\EmployeeDashController;
 use App\Http\Controllers\Api\AttendenceController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
@@ -98,6 +99,7 @@ Route::prefix('productions')->group(function () {
 
 Route::prefix('employees')->group(function () {
 
+    
     Route::get('/all_employee', [EmployeeController::class, 'index']);      
     Route::post('/add_employee', [EmployeeController::class, 'store']);     
     Route::get('/edit_employee/{id}', [EmployeeController::class, 'edit']); 
@@ -120,3 +122,4 @@ Route::get(
     '/machines/details/{id}',
     [MachineController::class, 'details']
 );
+Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
