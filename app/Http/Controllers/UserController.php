@@ -70,53 +70,55 @@ class UserController extends Controller
             'data'    => $user
         ], 200);
     }
+public function update(Request $request, $id)
+{
+    $user = User::find($id);
 
-    // ✅ 4. Update User
-    public function update(Request $request, $id)
-    {
-        $user = User::find($id);
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User not found'
-            ], 404);
-        }
-
-            $request->validate([
-             'name'              => 'sometimes|string|max:255',
-             'email'             => 'sometimes|email|unique:users,email,' . $id,
-             'password'          => 'sometimes|min:6',
-             'phone_no'          => 'sometimes|string|max:20',
-             'cnic'              => 'sometimes|string|max:20|unique:users,cnic,' . $id,
-             'address'           => 'nullable|string',
-             'pic'               => 'nullable|string',
-             'role'              => 'sometimes|string',
-             'employee_details'  => 'nullable|string',
-            ]);
-
-        $user->name = $request->name ?? $user->name;
-        $user->email = $request->email ?? $user->email;
-        $user->phone_no = $request->phone_no ?? $user->phone_no;
-        $user->phone_no = $request->phone_no ?? $user->phone_no;
-        $user->cnic = $request->cnic ?? $user->cnic;
-        $user->address = $request->address ?? $user->address;
-        $user->pic = $request->pic ?? $user->pic;
-        $user->role = $request->role ?? $user->role;
-        $user->employee_details = $request->employee_details ?? $user->employee_details;
-
-        if ($request->password) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
-
+    if (!$user) {
         return response()->json([
-            'success' => true,
-            'message' => 'User updated successfully',
-            'data'    => $user
-        ], 200);
+            'success' => false,
+            'message' => 'User not found'
+        ], 404);
     }
+
+    $request->validate([
+        'name'             => 'sometimes|string|max:255',
+        'email'            => 'sometimes|email|unique:users,email,' . $id,
+        'password'         => 'sometimes|min:6',
+        'phone_no'         => 'sometimes|string|max:20',
+        'cnic'             => 'sometimes|string|max:20|unique:users,cnic,' . $id,
+        'address'          => 'nullable|string',
+        'pic'              => 'nullable|string',
+        'role'             => 'sometimes|string|exists:roles,name', // ✅ validate
+        'employee_details' => 'nullable|string',
+    ]);
+
+    $user->name             = $request->name             ?? $user->name;
+    $user->email            = $request->email            ?? $user->email;
+    $user->phone_no         = $request->phone_no         ?? $user->phone_no;
+    $user->cnic             = $request->cnic             ?? $user->cnic;
+    $user->address          = $request->address          ?? $user->address;
+    $user->pic              = $request->pic              ?? $user->pic;
+    $user->employee_details = $request->employee_details ?? $user->employee_details;
+
+    // ❌ $user->role = ... — yeh bilkul nahi
+    // ✅ Spatie se role assign karo
+    if ($request->filled('role')) {
+        $user->syncRoles([$request->role]);
+    }
+
+    if ($request->filled('password')) {
+        $user->password = Hash::make($request->password);
+    }
+
+    $user->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'User updated successfully',
+        'data'    => $user->load('roles') // ✅ roles bhi return karo
+    ], 200);
+}
 
     // ✅ 5. Delete User
     public function destroy($id)
