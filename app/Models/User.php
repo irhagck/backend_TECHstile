@@ -18,7 +18,6 @@ class User extends Authenticatable
      'cnic',
      'address',
      'pic',
-     'role_id',
      'employee_details',
     ];
 

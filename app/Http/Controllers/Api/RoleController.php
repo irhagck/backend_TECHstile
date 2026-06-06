@@ -4,81 +4,93 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-use Illuminate\Support\Facades\Validator;
 
 class RoleController extends Controller
 {
-    // show all roles list
+    // 1. All Roles
     public function index()
     {
-        $roles = Role::with('permissions')->get();
-        return response()->json([
-            'status' => true,
-            'data' => $roles
-        ], 200);
+        $roles = Role::where('guard_name', 'web')->with('permissions')->get();
+        return response()->json(['status' => true, 'data' => $roles], 200);
     }
 
-    // create a new role
+    // 2. Add Role
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|unique:roles,name',
-            'permissions' => 'array' // Permissions IDs bheji ja sakti hain
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $role = Role::create(['name' => $request->name, 'guard_name' => 'web']);
-
-        if ($request->has('permissions')) {
-            $role->syncPermissions($request->permissions);
-        }
-
-        return response()->json(['status' => true, 'message' => 'Role Created Successfully', 'data' => $role], 201);
-    }
-
-    // 3. Single Role detail(edit delete)
-    public function show($id)
-    {
-        $role = Role::with('permissions')->find($id);
-        if (!$role) {
-            return response()->json(['status' => false, 'message' => 'Role not found'], 404);
-        }
-        return response()->json(['status' => true, 'data' => $role], 200);
-    }
-
-    // 4. Role Update 
-    public function update(Request $request, $id)
-    {
-        $role = Role::findById($id);
-        
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|unique:roles,name,' . $id,
+            'name'        => 'required|unique:roles,name',
             'permissions' => 'array'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => false, 'errors' => $validator->errors()], 422);
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 400);
         }
 
-        $role->update(['name' => $request->name]);
-        
-        if ($request->has('permissions')) {
+        $role = Role::create(['name' => $request->name, 'guard_name' => 'web']);
+
+        if ($request->permissions) {
             $role->syncPermissions($request->permissions);
         }
 
-        return response()->json(['status' => true, 'message' => 'Role Updated Successfully'], 200);
+        return response()->json(['status' => true, 'message' => 'Role created', 'data' => $role], 200);
     }
 
-    // 5. Role Delete 
+    // 3. Show Role
+    public function show($id)
+    {
+        $role = Role::where('id', $id)->where('guard_name', 'web')->with('permissions')->first();
+
+        if (!$role) {
+            return response()->json(['success' => false, 'message' => 'Role not found'], 404);
+        }
+
+        return response()->json(['status' => true, 'data' => $role], 200);
+    }
+
+    // 4. Update Role
+    public function update(Request $request, $id)
+    {
+        // ✅ web guard specify karo
+        $role = Role::where('id', $id)->where('guard_name', 'web')->first();
+
+        if (!$role) {
+            return response()->json(['success' => false, 'message' => 'Role not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name'        => 'required|unique:roles,name,' . $id,
+            'permissions' => 'array'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 400);
+        }
+
+        $role->name = $request->name;
+        $role->save();
+
+        if ($request->permissions) {
+            $role->syncPermissions($request->permissions);
+        }
+
+        return response()->json(['status' => true, 'message' => 'Role updated', 'data' => $role], 200);
+    }
+
+    // 5. Delete Role
     public function destroy($id)
     {
-        $role = Role::findById($id);
+        // ✅ web guard specify karo
+        $role = Role::where('id', $id)->where('guard_name', 'web')->first();
+
+        if (!$role) {
+            return response()->json(['success' => false, 'message' => 'Role not found'], 404);
+        }
+
         $role->delete();
-        return response()->json(['status' => true, 'message' => 'Role Deleted Successfully'], 200);
+
+        return response()->json(['status' => true, 'message' => 'Role deleted'], 200);
     }
 }
