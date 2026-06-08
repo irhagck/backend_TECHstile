@@ -149,7 +149,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/delete_attendence/{id}', [AttendenceController::class, 'destroy'])->middleware('permission:delete attendance');
     });
 
-<<<<<<< HEAD
 Route::prefix('productions')->group(function () {
 
     Route::get('/all_production', [ProductionController::class, 'index']);        
@@ -185,6 +184,7 @@ Route::get(
     [MachineController::class, 'details']
 );
 Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
-=======
+
 });
->>>>>>> eb70fe8b37bcb60ada87acd971a9d01315697748
+
+
