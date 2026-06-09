@@ -26,8 +26,17 @@ class Production extends Model
 public function machine() {
     return $this->belongsTo(Machine::class);
 }
+  public function machineemploye()
+    {
+        return $this->belongsTo(Machine::class, 'machine_id');
+    }
 
-// public function manager() {
-//     return $this->belongsTo(Manager::class);
-// }
+    public function employeedetails()
+    {
+        return $this->belongsTo(
+            Employee::class,
+            'employee_id',
+            'id'
+        );
+    }
 }

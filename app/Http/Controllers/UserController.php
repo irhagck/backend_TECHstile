@@ -100,8 +100,6 @@ public function update(Request $request, $id)
     $user->address          = $request->address          ?? $user->address;
     $user->pic              = $request->pic              ?? $user->pic;
     $user->employee_details = $request->employee_details ?? $user->employee_details;
-
-    // ❌ $user->role = ... — yeh bilkul nahi
     // ✅ Spatie se role assign karo
     if ($request->filled('role')) {
         $user->syncRoles([$request->role]);
