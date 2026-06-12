@@ -8,7 +8,8 @@ use App\Models\Employee;
 use App\Models\Production;
 use App\Models\Machine;
 use Carbon\Carbon;
-
+use App\Models\Attendence;
+use App\Models\User;
 class EmployeeDashController extends Controller
 {
     public function dashboard(Request $request, $id)
@@ -67,8 +68,74 @@ class EmployeeDashController extends Controller
     'machines' => $data,
 ]);
     }
-    public function machineDetails($id)
+
+    // /profile method for employee
+public function profile(Request $request, $id)
 {
+    $user = User::with('roles')->find($id);
+
+    if (!$user) {
+        return response()->json([
+            'success' => false,
+            'message' => 'User not found'
+        ], 404);
+    }
+
+    $employee = Employee::where('user_id', $id)->first();
+
+    $totalMachines = 0;
+    $totalProduction = 0;
+    $totalReadyProduction = 0;
+    $attendanceCount = 0;
+
+    if ($employee) {
+        $productions = Production::where(
+            'employee_id',
+            $employee->id
+        )->get();
+
+        $totalMachines = $productions->count();
+
+        $totalProduction = $productions->sum(
+            'total_length'
+        );
+
+        $totalReadyProduction = $productions->sum(
+            'ready_production'
+        );
+        
+
+        $attendanceCount = Attendence::where(
+            'employee_id',
+            $employee->id
+        )->count();
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            ...$user->toArray(),
+
+            'total_machines' => $totalMachines,
+            'total_production' => $totalProduction,
+            'total_ready_production' => $totalReadyProduction,
+            'attendance_count' => $attendanceCount,
+        ]
+    ]);
+}
+   public function machineDetails(Request $request, $id)
+{
+    $user = $request->user(); // ✅ logged in user
+
+    // ✅ $employee define karo — yeh missing tha
+    $employee = Employee::where('user_id', $user->id)->first();
+
+    if (!$employee) {
+        return response()->json([
+            'message' => 'Employee not found'
+        ], 404);
+    }
+
     $machine = Machine::find($id);
 
     if (!$machine) {
@@ -89,8 +156,8 @@ class EmployeeDashController extends Controller
             'message' => 'No production found'
         ], 404);
     }
-
-    $dailyProduction = Production::where(
+    
+ $dailyProduction = Production::where(
     'machine_id',
     $id
 )
@@ -122,6 +189,9 @@ $yearlyProduction = Production::where(
     Carbon::now()->year
 )
 ->sum('ready_production');
+$employeeId = $production->employee_id;
+ $attendanceCount = Attendence::where(
+        'employee_id',$employee->id)->count();
 
    return response()->json([
     'machine_id' => $machine->id,
@@ -157,6 +227,8 @@ $yearlyProduction = Production::where(
 
     'yearly_production' =>
         $yearlyProduction,
+     'attendance_count' =>
+         $attendanceCount,
 ]);
 }
 }

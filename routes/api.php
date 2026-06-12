@@ -22,6 +22,10 @@ use App\Http\Controllers\Api\PermissionController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get(
+    '/employee/profile/{id}',
+    [EmployeeDashController::class, 'profile']
+);
  
 
 /*
@@ -32,7 +36,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
-    Route::get('/profile', [AuthController::class, 'profile']);
+    // Route::get('/profile', [AuthController::class, 'profile']);
 
     /*
     |---------------------------
@@ -150,6 +154,33 @@ Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'ma
 // Production enter karna
 Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
-   
+  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:approve production');
 
+   Route::get('/productions/approved',[ProductionController::class,'approve'])->middleware('permission:view productions');
+
+   Route::get('/productions/rejected',[ProductionController::class,'reject'])->middleware('permission:view productions');
+
+    Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
+
+     Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
+
+    // Attendance mark karna
+    Route::post('/attendence/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:create attendance');
+
+     // Attendance details
+     Route::get('/attendence/employee_attendance/{employee_id}', [AttendenceController::class, 'employeeAttendance'])->middleware('permission:view attendance');
+
+     // Employee Dashboard
+
+Route::put(
+'/productions/approve/{id}',
+[ProductionController::class,'approve']
+);
+
+Route::put(
+'/productions/reject/{id}',
+[ProductionController::class,'reject']
+);
+Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile']
+);
 }); // auth:sanctum group end
