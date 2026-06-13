@@ -123,112 +123,75 @@ public function profile(Request $request, $id)
         ]
     ]);
 }
-   public function machineDetails(Request $request, $id)
+ public function machineDetails(Request $request, $id)
 {
-    $user = $request->user(); // ✅ logged in user
-
-    // ✅ $employee define karo — yeh missing tha
+    $user = $request->user();
     $employee = Employee::where('user_id', $user->id)->first();
 
     if (!$employee) {
-        return response()->json([
-            'message' => 'Employee not found'
-        ], 404);
+        return response()->json(['message' => 'Employee not found'], 404);
     }
 
     $machine = Machine::find($id);
-
     if (!$machine) {
-        return response()->json([
-            'message' => 'Machine not found'
-        ], 404);
+        return response()->json(['message' => 'Machine not found'], 404);
     }
 
-    $production = Production::with([
-        'employeedetails.user'
-    ])
-    ->where('machine_id', $id)
-    ->latest()
-    ->first();
+    // ✅ Latest production — employee + machine ke basis pe
+    $production = Production::with(['employeedetails.user'])
+        ->where('machine_id', $id)
+        ->where('employee_id', $employee->id)
+        ->latest()
+        ->first();
 
     if (!$production) {
-        return response()->json([
-            'message' => 'No production found'
-        ], 404);
+        return response()->json(['message' => 'No production found'], 404);
     }
-    
- $dailyProduction = Production::where(
-    'machine_id',
-    $id
-)
-->whereDate(
-    'created_at',
-    Carbon::today()
-)
-->sum('ready_production');
 
-$weeklyProduction = Production::where(
-    'machine_id',
-    $id
-)
-->whereBetween(
-    'created_at',
-    [
-        Carbon::now()->startOfWeek(),
-        Carbon::now()->endOfWeek()
-    ]
-)
-->sum('ready_production');
+    // ✅ Sirf isi batch ka sum
+    $totalReadyProduction = Production::where('machine_id', $id)
+        ->where('employee_id', $employee->id)
+        ->where('batch_id', $production->batch_id)
+        ->sum('ready_production');
 
-$yearlyProduction = Production::where(
-    'machine_id',
-    $id
-)
-->whereYear(
-    'created_at',
-    Carbon::now()->year
-)
-->sum('ready_production');
-$employeeId = $production->employee_id;
- $attendanceCount = Attendence::where(
-        'employee_id',$employee->id)->count();
+    $remaining = max(0, $production->total_length - $totalReadyProduction);
+    $canAddProduction = $remaining > 0;
 
-   return response()->json([
-    'machine_id' => $machine->id,
-    'machine_type' => $machine->machine_type,
-    'status' => $machine->status,
+    $dailyProduction = Production::where('machine_id', $id)
+        ->whereDate('created_at', Carbon::today())
+        ->sum('ready_production');
 
-    'employee_id' =>
-        $production->employeedetails?->employee_id,
+    $weeklyProduction = Production::where('machine_id', $id)
+        ->whereBetween('created_at', [
+            Carbon::now()->startOfWeek(),
+            Carbon::now()->endOfWeek()
+        ])
+        ->sum('ready_production');
 
-    'employee_name' =>
-        $production->employeedetails?->user?->name,
+    $yearlyProduction = Production::where('machine_id', $id)
+        ->whereYear('created_at', Carbon::now()->year)
+        ->sum('ready_production');
 
-    'shift_start' =>
-        $production->shift_start,
+    $attendanceCount = Attendence::where('employee_id', $employee->id)->count();
 
-    'shift_end' =>
-        $production->shift_end,
-
-    'variety_type' =>
-        $production->variety_type,
-
-    'total_length' =>
-        $production->total_length,
-
-    'ready_production' =>
-        $production->ready_production,
-
-    'daily_production' =>
-        $dailyProduction,
-
-    'weekly_production' =>
-        $weeklyProduction,
-
-    'yearly_production' =>
-        $yearlyProduction,
-     'attendance_count' =>
-         $attendanceCount,
-]);
+    return response()->json([
+        'machine_id'         => $machine->id,
+        'machine_type'       => $machine->machine_type,
+        'status'             => $machine->status,
+        'employee_id'        => $production->employeedetails?->employee_id,
+        'employee_name'      => $production->employeedetails?->user?->name,
+        'shift_start'        => $production->shift_start,
+        'shift_end'          => $production->shift_end,
+        'variety_type'       => $production->variety_type,
+        'total_length'       => $production->total_length,
+        'batch_id'           => $production->batch_id,  // ✅ Flutter ko bhejna zaroori
+        'ready_production'   => $totalReadyProduction,
+        'remaining'          => $remaining,
+        'can_add_production' => $canAddProduction,
+        'daily_production'   => $dailyProduction,
+        'weekly_production'  => $weeklyProduction,
+        'yearly_production'  => $yearlyProduction,
+        'attendance_count'   => $attendanceCount,
+    ]);
 }
 }

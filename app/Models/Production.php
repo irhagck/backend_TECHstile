@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Production extends Model
 {
     protected $fillable = [
+        'batch_id',
         'variety_type',
         'total_length',
         'ready_production',

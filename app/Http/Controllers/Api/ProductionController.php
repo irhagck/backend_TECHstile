@@ -152,5 +152,41 @@ public function reject($id)
     ]);
 }
 
+//assign production batch to machine
+public function assignProduction(Request $request)
+{
+    $request->validate([
+        'machine_id'   => 'required|integer',
+        'variety_type' => 'required|string',
+        'total_length' => 'required|numeric',
+    ]);
+
+    // copy the data from the last production of the machine
+    $last = Production::where('machine_id', $request->machine_id)
+        ->latest()
+        ->first();
+
+    //  Unique batch_id generate 
+    $batchId = 'BATCH-' . $request->machine_id . '-' . time();
+
+    Production::create([
+        'batch_id'         => $batchId,
+        'machine_id'       => $request->machine_id,
+        'employee_id'      => $last?->employee_id,
+        'factory_id'       => $last?->factory_id ?? 1,
+        'manager_id'       => $last?->manager_id,
+        'variety_type'     => $request->variety_type,
+        'total_length'     => $request->total_length,
+        'ready_production' => 0,
+        'shift_start'      => $last?->shift_start,
+        'shift_end'        => $last?->shift_end,
+        'status'           => 1,
+    ]);
+
+    return response()->json([
+        'message'  => 'Production assigned successfully',
+        'batch_id' => $batchId,
+    ], 201);
+}
 
 }

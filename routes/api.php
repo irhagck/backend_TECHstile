@@ -183,4 +183,6 @@ Route::put(
 );
 Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile']
 );
+//
+Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
 }); // auth:sanctum group end
