@@ -22,6 +22,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'view employees',    'create employees',    'edit employees',    'delete employees',
             'view attendance',   'create attendance',   'edit attendance',   'delete attendance',
             'view users',        'create users',        'edit users',        'delete users',
+            'approve production', 'reject production',
+            'scan qr', 'view profile'
         ];
 
         foreach ($permissions as $permission) {
@@ -49,9 +51,14 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // 5. Employee — very limited permissions
+       // Employee — update karo
         $employee->syncPermissions([
-            'view productions',
-            'view attendance',   'create attendance',
+            // Production
+            'view productions', 'create productions',
+            'view machines',
+            'view attendance',
+            'create attendance',
+            'scan qr', 'view profile'
         ]);
 
         // 6. Assign owner role to specific user

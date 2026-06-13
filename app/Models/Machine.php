@@ -13,5 +13,13 @@ class Machine extends Model
         'machine_id',
         'machine_type',
         'time',
+        'status',
     ];
+    public function productions()
+{
+    return $this->hasMany(
+        Production::class,
+        'machine_id'
+    );
+}
 }

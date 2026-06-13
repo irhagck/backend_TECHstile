@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Production extends Model
 {
     protected $fillable = [
+        'batch_id',
         'variety_type',
         'total_length',
         'ready_production',
@@ -14,7 +15,8 @@ class Production extends Model
         'employee_id',
         'factory_id',
         'shift_start',
-        'shift_end'
+        'shift_end',
+        'status',
     ];
     public function factory() {
     return $this->belongsTo(Factory::class);
@@ -26,8 +28,17 @@ class Production extends Model
 public function machine() {
     return $this->belongsTo(Machine::class);
 }
+  public function machineemploye()
+    {
+        return $this->belongsTo(Machine::class, 'machine_id');
+    }
 
-// public function manager() {
-//     return $this->belongsTo(Manager::class);
-// }
+    public function employeedetails()
+    {
+        return $this->belongsTo(
+            Employee::class,
+            'employee_id',
+            'id'
+        );
+    }
 }
