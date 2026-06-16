@@ -153,10 +153,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
    // Machine details — scan ke baad
 Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'machineDetails']) ->middleware('permission:view machines');
 
+Route::prefix('productions')->group(function () {
 // Production enter karna
 Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
+
   Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');
+
+
+  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:approve production');
+
 
    Route::get('/productions/approved',[ProductionController::class,'approve'])->middleware('permission:view productions');
 
@@ -178,6 +184,11 @@ Route::put(
 '/productions/approve/{id}',
 [ProductionController::class,'approve']
 );
+
+Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
+
+});
+
 
 Route::put(
 '/productions/reject/{id}',
