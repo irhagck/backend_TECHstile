@@ -27,13 +27,13 @@ class MachineController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'machine_id' => 'required',
+            'machine_name' => 'required',
             'machine_type' => 'required',
             'time' => 'required'
         ]);
 
         $machine = Machine::create([
-            'machine_id' => $request->machine_id,
+            'machine_name' => $request->machine_name,
             'machine_type' => $request->machine_type,
             'time' => $request->time,
         ]);
@@ -76,7 +76,7 @@ class MachineController extends Controller
         }
 
         $machine->update([
-            'machine_id' => $request->machine_id,
+            'machine_name' => $request->machine_name,
             'machine_type' => $request->machine_type,
             'time' => $request->time,
         ]);
@@ -107,7 +107,7 @@ class MachineController extends Controller
             'message' => 'Machine deleted successfully'
         ]);
     }
-    // 🔹 Machine details
+    // 🔹 Machine details owner side 
    public function details($id)
 {
     $machine = Machine::find($id);

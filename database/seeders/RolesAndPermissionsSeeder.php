@@ -22,7 +22,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view employees',    'create employees',    'edit employees',    'delete employees',
             'view attendance',   'create attendance',   'edit attendance',   'delete attendance',
             'view users',        'create users',        'edit users',        'delete users',
-            'approve production', 'reject production',
+            'approve production', 'reject production', 'mark attendance',
             'scan qr', 'view profile'
         ];
 
@@ -58,7 +58,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'view machines',
             'view attendance',
             'create attendance',
-            'scan qr', 'view profile'
+            'scan qr', 'view profile',
+            'mark attendance'
         ]);
 
         // 6. Assign owner role to specific user

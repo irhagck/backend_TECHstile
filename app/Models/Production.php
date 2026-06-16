@@ -30,7 +30,7 @@ public function machine() {
 }
   public function machineemploye()
     {
-        return $this->belongsTo(Machine::class, 'machine_id');
+        return $this->belongsTo(Machine::class, 'id');
     }
 
     public function employeedetails()

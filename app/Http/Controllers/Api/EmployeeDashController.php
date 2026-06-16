@@ -12,62 +12,66 @@ use App\Models\Attendence;
 use App\Models\User;
 class EmployeeDashController extends Controller
 {
-    public function dashboard(Request $request, $id)
-    {
-        // Logged-in user
-       $employee = Employee::where('user_id', $id)->first();
+ public function dashboard(Request $request, $id)
+{
+    $employee = Employee::where('user_id', $id)->first();
 
     if (!$employee) {
-        return response()->json([
-            'message' => 'Employee not found',
-            'user_id' => $id  // debug ke liye
-        ], 404);
-        }
-
-        $productions = Production::with([
-            'machineemploye',
-            'employeedetails.user'
-        ])
-        ->where('employee_id', $employee->id)
-        ->get();
-
-        $data = $productions->map(function ($production) {
-
-            $progress = 0;
-
-            if (
-                $production->total_length > 0 &&
-                $production->ready_production != null
-            ) {
-                $progress = round(
-                    ($production->ready_production / $production->total_length) * 100,
-                    2
-                );
-            }
-
-            return [
-                'machine_id' => $production->machineemploye?->id,
-                'machine_type' => $production->machineemploye?->machine_type,
-                'machine_status' => $production->machineemploye?->status,
-
-                'employee_name' => $production->employeedetails?->user?->name,
-
-                'variety_type' => $production->variety_type,
-                'ready_production' => $production->ready_production,
-                'total_length' => $production->total_length,
-
-                'progress' => $progress,
-            ];
-        });
-
-      return response()->json([
-    'employee_name' => $employee->user->name ?? '',
-    'total_machines' => $productions->count(),
-    'total_production' => $productions->sum('total_length'),
-    'total_ready_production' => $productions->sum('ready_production'),
-    'machines' => $data,
-]);
+        return response()->json(['message' => 'Employee not found'], 404);
     }
+
+    $productions = Production::with([
+        'machineemploye',
+        'employeedetails.user'
+    ])
+    ->where('employee_id', $employee->id)
+    ->where('status', 2)
+    ->get();
+
+    // 🔥 GROUP BY MACHINE + VARIETY + BATCH (IMPORTANT)
+    $grouped = $productions->groupBy(function ($item) {
+        return $item->machine_id . '_' . $item->variety_type . '_' . $item->batch_id;
+    });
+
+    $data = $grouped->map(function ($group) {
+
+        $first = $group->first();
+
+        // ✅ READY PRODUCTION = SUM
+        $readyProduction = $group->sum('ready_production');
+
+        // ❗ TOTAL LENGTH = TAKE SINGLE (NOT SUM)
+        $totalLength = $first->total_length;
+
+        $progress = ($totalLength > 0)
+            ? round(($readyProduction / $totalLength) * 100, 2)
+            : 0;
+
+        return [
+            'machine_id' => $first->machine_id,
+            'machine_type' => $first->machineemploye->machine_type ?? '',
+            'machine_status' => $first->machineemploye->status ?? '',
+
+            'employee_name' => $first->employeedetails?->user?->name ?? '',
+            'variety_type' => $first->variety_type ?? '',
+            'batch_id' => $first->batch_id ?? '',
+
+            // 🔥 IMPORTANT FIX
+            'ready_production' => $readyProduction,
+            'total_length' => $totalLength,
+
+            'progress' => $progress,
+        ];
+    })->values();
+
+    return response()->json([
+        'employee_name' => $employee->user->name ?? '',
+        'total_machines' => $data->count(),
+        'total_production' => $data->sum('total_length'),
+        'total_ready_production' => $data->sum('ready_production'),
+        'machines' => $data,
+    ]);
+}
 
     // /profile method for employee
 public function profile(Request $request, $id)
@@ -88,41 +92,47 @@ public function profile(Request $request, $id)
     $totalReadyProduction = 0;
     $attendanceCount = 0;
 
-    if ($employee) {
-        $productions = Production::where(
-            'employee_id',
-            $employee->id
-        )->get();
+   if ($employee) {
 
-        $totalMachines = $productions->count();
+    // 🔥 ONLY APPROVED PRODUCTIONS
+    $productions = Production::where('employee_id', $employee->id)
+        ->where('status', 2)
+        ->get();
 
-        $totalProduction = $productions->sum(
-            'total_length'
-        );
+    // 🔥 GROUP (same machine + batch + variety)
+    $grouped = $productions->groupBy(function ($item) {
+        return $item->machine_id . '_' . $item->variety_type . '_' . $item->batch_id;
+    });
 
-        $totalReadyProduction = $productions->sum(
-            'ready_production'
-        );
-        
+    $totalMachines = $grouped->count();
 
-        $attendanceCount = Attendence::where(
-            'employee_id',
-            $employee->id
-        )->count();
-    }
+    $totalProduction = $grouped->sum(function ($group) {
+        return $group->first()->total_length;
+    });
 
-    return response()->json([
-        'success' => true,
-        'data' => [
-            ...$user->toArray(),
+    $totalReadyProduction = $grouped->sum(function ($group) {
+        return $group->sum('ready_production');
+    });
 
-            'total_machines' => $totalMachines,
-            'total_production' => $totalProduction,
-            'total_ready_production' => $totalReadyProduction,
-            'attendance_count' => $attendanceCount,
-        ]
-    ]);
+    $attendanceCount = Attendence::where(
+        'employee_id',
+        $employee->id
+    )->count();
 }
+
+   return response()->json([
+    'success' => true,
+    'data' => [
+        ...$user->toArray(),
+
+        'total_machines' => $totalMachines,
+        'total_production' => $totalProduction,
+        'total_ready_production' => $totalReadyProduction,
+        'attendance_count' => $attendanceCount,
+    ]
+]);
+}
+//employee side machine details
  public function machineDetails(Request $request, $id)
 {
     $user = $request->user();
@@ -178,13 +188,15 @@ public function profile(Request $request, $id)
         'machine_id'         => $machine->id,
         'machine_type'       => $machine->machine_type,
         'status'             => $machine->status,
-        'employee_id'        => $production->employeedetails?->employee_id,
+        'employee_id'        => $production->employeedetails?->id,
         'employee_name'      => $production->employeedetails?->user?->name,
-        'shift_start'        => $production->shift_start,
-        'shift_end'          => $production->shift_end,
+        'shift_start' => $production->employeedetails?->shift_starttime,
+        'shift_end'   => $production->employeedetails?->shift_endtime,
+        // 'shift_start'        => $production->shift_start,
+        // 'shift_end'          => $production->shift_end,
         'variety_type'       => $production->variety_type,
         'total_length'       => $production->total_length,
-        'batch_id'           => $production->batch_id,  // ✅ Flutter ko bhejna zaroori
+        'batch_id'           => $production->batch_id,  
         'ready_production'   => $totalReadyProduction,
         'remaining'          => $remaining,
         'can_add_production' => $canAddProduction,

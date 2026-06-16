@@ -146,7 +146,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/edit_attendence/{id}',    [AttendenceController::class, 'edit'])->middleware('permission:edit attendance');
         Route::put('/update_attendence/{id}',  [AttendenceController::class, 'update'])->middleware('permission:edit attendance');
         Route::delete('/delete_attendence/{id}', [AttendenceController::class, 'destroy'])->middleware('permission:delete attendance');
-    });
+        Route::post('/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:mark attendance');
+        });
+
     // Employee Machine Details Route
    // Machine details — scan ke baad
 Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'machineDetails']) ->middleware('permission:view machines');
@@ -154,7 +156,7 @@ Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'ma
 // Production enter karna
 Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
-  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:approve production');
+  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');
 
    Route::get('/productions/approved',[ProductionController::class,'approve'])->middleware('permission:view productions');
 
@@ -165,7 +167,7 @@ Route::post('/productions/add_production',    [ProductionController::class, 'sto
      Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
 
     // Attendance mark karna
-    Route::post('/attendence/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:create attendance');
+    Route::post('/attendence/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:mark attendance');
 
      // Attendance details
      Route::get('/attendence/employee_attendance/{employee_id}', [AttendenceController::class, 'employeeAttendance'])->middleware('permission:view attendance');

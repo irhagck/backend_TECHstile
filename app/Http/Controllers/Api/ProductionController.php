@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Production;
 use App\Models\Attendence;
 use App\Models\User;
+use App\Models\Employee;
 class ProductionController extends Controller
 {
     // 1. Show all productions
@@ -26,40 +27,62 @@ public function index()
     // }
 
     // 2. Add production
-  public function store(Request $request)
+ public function store(Request $request)
 {
+
     $request->validate([
-        'machine_id' => 'required',
-        'employee_id' => 'required',
-        'factory_id' => 'required',
-        'variety_type' => 'required',
-        'total_length' => 'required',
-        'ready_production' => 'required',
+        'machine_id'=>'required',
+        'employee_id'=>'required',
+        'factory_id'=>'required',
+        'variety_type'=>'required',
+        'total_length'=>'required',
+        'ready_production'=>'required',
     ]);
+
+
+    // owner assignment wali batch copy karo
+    $lastProduction = Production::where('machine_id',$request->machine_id)
+        ->whereNotNull('batch_id')
+        ->latest()
+        ->first();
+        if($lastProduction){
+
+    $totalDone = Production::where('machine_id',$request->machine_id)
+    ->where('batch_id',$lastProduction->batch_id)
+    ->sum('ready_production');
+
+
+    if($totalDone >= $lastProduction->total_length){
+        return response()->json([
+            "message"=>"Production already completed"
+        ],400);
+    }
+}
+   
+    $batchId = $lastProduction?->batch_id;
 
     $production = Production::create([
-        'machine_id' => $request->machine_id,
-        'employee_id' => $request->employee_id,
-        'factory_id' => $request->factory_id,
-        'variety_type' => $request->variety_type,
-        'total_length' => $request->total_length,
-        'ready_production' => $request->ready_production,
-        'shift_start' => $request->shift_start,
-        'shift_end' => $request->shift_end,
-        'status' => 1, // Pending
-    ]);
-    // Attendance Auto Mark
-Attendence::create([
-    'employee_id' => $request->employee_id,
-    'type' => 'present',
-    'timestamp' => now(),
-    'production_id' => $production->id,
-]);
 
+        'machine_id'=>$request->machine_id,
+        'employee_id'=>$request->employee_id,
+        'factory_id'=>$request->factory_id,
+
+        'variety_type'=>$request->variety_type,
+        'total_length'=>$request->total_length,
+        'ready_production'=>$request->ready_production,
+
+        // yahan copy hogi
+        'batch_id'=>$batchId,
+
+        'shift_start'=>$request->shift_start,
+        'shift_end'=>$request->shift_end,
+
+        'status'=>1,
+    ]);
     return response()->json([
-        'message' => 'Production submitted successfully',
-        'data' => $production
-    ], 201);
+        'message'=>'Production submitted successfully',
+        'data'=>$production
+    ]);
 }
 
     // 3. Show single production
@@ -152,41 +175,24 @@ public function reject($id)
     ]);
 }
 
-//assign production batch to machine
-public function assignProduction(Request $request)
-{
-    $request->validate([
-        'machine_id'   => 'required|integer',
-        'variety_type' => 'required|string',
-        'total_length' => 'required|numeric',
-    ]);
-
-    // copy the data from the last production of the machine
-    $last = Production::where('machine_id', $request->machine_id)
-        ->latest()
-        ->first();
-
-    //  Unique batch_id generate 
-    $batchId = 'BATCH-' . $request->machine_id . '-' . time();
-
-    Production::create([
-        'batch_id'         => $batchId,
-        'machine_id'       => $request->machine_id,
-        'employee_id'      => $last?->employee_id,
-        'factory_id'       => $last?->factory_id ?? 1,
-        'manager_id'       => $last?->manager_id,
-        'variety_type'     => $request->variety_type,
-        'total_length'     => $request->total_length,
-        'ready_production' => 0,
-        'shift_start'      => $last?->shift_start,
-        'shift_end'        => $last?->shift_end,
-        'status'           => 1,
-    ]);
-
-    return response()->json([
-        'message'  => 'Production assigned successfully',
-        'batch_id' => $batchId,
-    ], 201);
-}
-
+public function assignProduction(Request $request) { $request->validate([ 
+    'machine_id' => 'required|integer', 
+    'variety_type' => 'required|string', 
+    'total_length' => 'required|numeric', ]);
+ // copy the data from the last production of the machine 
+ $last = Production::where('machine_id', $request->machine_id) ->latest() ->first();
+ //Unique batch_id generate
+  $batchId = 'BATCH-' . $request->machine_id . '-' . time();
+  $employee = Employee::find($request->employee_id); 
+  Production::create([ 'batch_id' => $batchId, 'machine_id' => $request->machine_id,
+   'employee_id' => $last?->employee_id, 
+   'factory_id' => $last?->factory_id ?? 1, 
+   'manager_id' => $last?->manager_id, 
+   'variety_type' => $request->variety_type, 
+   'total_length' => $request->total_length, 
+   'ready_production' => 0, 
+   'shift_start' => $employee?->shift_starttime, 
+   'shift_end' => $employee?->shift_endtime, 'status' => 1, ]);
+    return response()->json([ 'message' => 'Production assigned successfully',
+     'batch_id' => $batchId, ], 201); }
 }

@@ -69,4 +69,24 @@ class AttendenceController extends Controller
             'message' => 'Attendance deleted successfully'
         ], 200);
     }
+
+    // employee attendance function
+   public function markAttendance(Request $request)
+{
+    $request->validate([
+        'employee_id'=>'required|integer',
+        'machine_id'=>'required|integer',
+    ]);
+
+    $attendance = Attendence::create([
+        'employee_id'=>$request->employee_id,
+        'machine_id'=>$request->machine_id,
+        'type'=>'IN',
+    ]);
+
+    return response()->json([
+        'message'=>'Attendance marked successfully',
+        'data'=>$attendance
+    ],201);
+}
 }
