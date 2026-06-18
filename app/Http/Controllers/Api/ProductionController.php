@@ -174,6 +174,7 @@ public function reject($id)
             'Production Rejected'
     ]);
 }
+// 6. Assign production to employee using unique batch_id
 
 public function assignProduction(Request $request) { $request->validate([ 
     'machine_id' => 'required|integer', 

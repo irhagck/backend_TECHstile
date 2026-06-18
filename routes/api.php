@@ -191,11 +191,10 @@ Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboar
 
 
 Route::put(
-'/productions/reject/{id}',
-[ProductionController::class,'reject']
-);
-Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile']
-);
-//
+'/productions/reject/{id}',[ProductionController::class,'reject']);
+// Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
+//assign production to employee using unique batch_id
 Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
+//employee history route
+Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
 }); // auth:sanctum group end

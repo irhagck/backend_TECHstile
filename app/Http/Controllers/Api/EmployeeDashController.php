@@ -206,4 +206,143 @@ public function profile(Request $request, $id)
         'attendance_count'   => $attendanceCount,
     ]);
 }
+
+// employee history functions
+     public function employeeHistory($id)
+{
+    $employee = Employee::where('user_id',$id)->first();
+
+    if(!$employee){
+        return response()->json([
+            'message'=>'Employee not found'
+        ],404);
+    }
+
+
+    // ======================
+    // PENDING
+    // ======================
+
+    $pending = Production::with([
+        'machine'
+    ])
+    ->where('employee_id',$employee->id)
+    ->where('status',1)
+    ->latest()
+    ->get();
+
+
+    // ======================
+    // APPROVED
+    // ======================
+
+    $approved = Production::with([
+        'machine'
+    ])
+    ->where('employee_id',$employee->id)
+    ->where('status',2)
+    ->get();
+
+
+    $completed = $approved
+    ->groupBy(function($item){
+
+        return $item->machine_id.'_'
+        .$item->variety_type.'_'
+        .$item->batch_id;
+
+    })
+    ->map(function($group){
+
+        $first = $group->first();
+
+
+        return [
+
+            'machine_id'=>$first->machine_id,
+
+            'machine_type'=>
+            $first->machine?->machine_type,
+
+
+            'variety_type'=>
+            $first->variety_type,
+
+
+            // SUM READY
+            'ready_production'=>
+            $group->sum('ready_production'),
+
+
+            // SAME TOTAL
+            'total_length'=>
+            $first->total_length,
+
+
+            'status'=>$first->status,
+
+        ];
+
+    })
+    ->values();
+
+
+
+    // ======================
+    // TOTALS
+    // ======================
+
+
+    $daily =
+    Production::where('employee_id',$employee->id)
+    ->where('status',2)
+    ->whereDate(
+        'created_at',
+        today()
+    )
+    ->sum('ready_production');
+
+
+
+    $weekly =
+    Production::where('employee_id',$employee->id)
+    ->where('status',2)
+    ->whereBetween(
+        'created_at',
+        [
+          now()->startOfWeek(),
+          now()->endOfWeek()
+        ]
+    )
+    ->sum('ready_production');
+
+
+
+    $monthly =
+    Production::where('employee_id',$employee->id)
+    ->where('status',2)
+    ->whereMonth(
+        'created_at',
+        now()->month
+    )
+    ->sum('ready_production');
+
+
+
+
+    return response()->json([
+
+        'pending'=>$pending,
+
+        'completed'=>$completed,
+
+        'daily'=>$daily,
+
+        'weekly'=>$weekly,
+
+        'monthly'=>$monthly,
+
+    ]);
+
+}
 }

@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Models\Employee;
 use App\Models\Factory;
 use App\Models\Production;
-
+use Carbon\Carbon;
 class MachineController extends Controller
 {
     // 🔹 Show all machines
@@ -107,72 +107,104 @@ class MachineController extends Controller
             'message' => 'Machine deleted successfully'
         ]);
     }
-    // 🔹 Machine details owner side 
    public function details($id)
 {
     $machine = Machine::find($id);
 
-    if (!$machine) {
+    if(!$machine){
         return response()->json([
-            'status' => false,
-            'message' => 'Machine not found'
-        ], 404);
+            'message'=>'Machine not found'
+        ],404);
     }
 
-   $production = Production::where(
-    'machine_id',
-    $id
-)->latest()->first();
 
-$employeeName = null;
-$factoryName = null;
+    $production = Production::with([
+        'employeedetails.user'
+    ])
+    ->where('machine_id',$id)
+    ->latest()
+    ->first();
 
-if ($production) {
 
-    $employee = Employee::find(
-        $production->employee_id
-    );
+    if(!$production){
 
-    if ($employee) {
+        return response()->json([
+            'machine_id'=>$machine->id,
+            'machine_type'=>$machine->machine_type,
+            'machine_status'=>$machine->status,
+            'message'=>'No production found'
+        ]);
 
-        $user = User::find(
-            $employee->user_id
-        );
-
-        $employeeName = $user?->name;
     }
 
-    $factory = Factory::find(
-        $production->factory_id
+
+
+    // same batch ready sum
+
+    $readyProduction = Production::where('machine_id',$id)
+    ->where('batch_id',$production->batch_id)
+    ->sum('ready_production');
+
+
+
+    $remaining = max(
+        0,
+        $production->total_length - $readyProduction
     );
 
-    $factoryName = $factory?->name;
-}
+
+
+    // only daily
+
+    $dailyProduction = Production::where('machine_id',$id)
+    ->whereDate(
+        'created_at',
+        Carbon::today()
+    )
+    ->sum('ready_production');
     return response()->json([
-        'status' => true,
 
-        'machine' => $machine,
 
-        'employee_name' =>
-            $employeeName,
+        "machine_id"=>$machine->id,
 
-        'factory_name' =>
-            $factoryName,
+        "machine_type"=>$machine->machine_type,
 
-        'variety' =>
-            $production?->variety_type,
+        "machine_status"=>$machine->status,
 
-        'ready_production' =>
-            $production?->ready_production,
 
-        'assign_date' =>
-            $production?->shift_start,
+        "employee_id"=>$production->employee_id,
 
-        'machine_status' =>
-            $machine->machine_status,
 
-        'total_production' =>
-            $production?->total_length,
+        "employee_name" =>
+        optional($production->employeedetails)
+        ->user
+        ->name ?? "",
+
+
+        "shift_start" =>
+        $production->employeedetails?->shift_starttime,
+
+
+        "shift_end" =>
+        $production->employeedetails?->shift_endtime,
+
+
+
+        "variety_type"=>$production->variety_type,
+
+
+        "total_length"=>$production->total_length,
+
+
+        "ready_production"=>$readyProduction,
+
+
+        "remaining"=>$remaining,
+
+
+        // "daily_production"=>$dailyProduction,
+
+
     ]);
 }
 }
