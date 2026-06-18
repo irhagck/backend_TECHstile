@@ -30,7 +30,7 @@ class UserController extends Controller
          'cnic'              => 'required|string|max:20|unique:users,cnic',
          'address'           => 'nullable|string',
          'pic'               => 'nullable|string',
-         'role'              => 'required|string',
+        //  'role'              => 'required|string',
          'employee_details'  => 'nullable|string',
         ]);
 
@@ -45,11 +45,14 @@ class UserController extends Controller
          'role'              => $request->role,
          'employee_details'  => $request->employee_details,
         ]);
+        if ($request->filled('role')) {
+    $user->syncRoles([$request->role]);
+}
 
         return response()->json([
             'success' => true,
             'message' => 'User created successfully',
-            'data'    => $user
+           'data'    => $user->load('roles')
         ], 201);
     }
 

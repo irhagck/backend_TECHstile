@@ -6,10 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Attendence extends Model
 {
-   protected $fillable = [
+  protected $fillable = [
     'employee_id',
+    'machine_id',
     'type',
-    'timestamp',
-    'production_id',
 ];
 }

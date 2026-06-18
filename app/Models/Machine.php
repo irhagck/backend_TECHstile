@@ -10,7 +10,7 @@ class Machine extends Model
     use HasFactory;
 
     protected $fillable = [
-        'machine_id',
+        'machine_name',
         'machine_type',
         'time',
         'status',
@@ -29,7 +29,7 @@ class Machine extends Model
 {
     return $this->hasMany(
         Production::class,
-        'machine_id'
+        'id'
     );
 }
 }
