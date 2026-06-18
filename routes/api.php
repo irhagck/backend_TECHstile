@@ -101,7 +101,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     |---------------------------
     */
     Route::prefix('machines')->group(function () {
-        Route::get('/all',              [MachineController::class, 'index'])->middleware('permission:view machines');
+        Route::get('/machines/all/{factoryId}',[MachineController::class, 'index'])->middleware('permission:view machines');
         Route::post('/add_machine',     [MachineController::class, 'store'])->middleware('permission:create machines');
         Route::get('edit_machine/{id}', [MachineController::class, 'edit'])->middleware('permission:edit machines');
         Route::put('update_machine/{id}', [MachineController::class, 'update'])->middleware('permission:edit machines');

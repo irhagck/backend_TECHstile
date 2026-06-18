@@ -13,15 +13,18 @@ use App\Models\Production;
 class MachineController extends Controller
 {
     // 🔹 Show all machines
-    public function index()
-    {
-        $machines = Machine::all();
+    public function index($factoryId)
+{
+    $machines = Machine::where(
+        'factory_id',
+        $factoryId
+    )->get();
 
-        return response()->json([
-            'status' => true,
-            'data' => $machines
-        ]);
-    }
+    return response()->json([
+        'status' => true,
+        'data' => $machines
+    ]);
+}
 
     // 🔹 Add machine
     public function store(Request $request)
@@ -33,10 +36,11 @@ class MachineController extends Controller
         ]);
 
         $machine = Machine::create([
-            'machine_id' => $request->machine_id,
-            'machine_type' => $request->machine_type,
-            'time' => $request->time,
-        ]);
+         'machine_id' => $request->machine_id,
+         'machine_type' => $request->machine_type,
+         'time' => $request->time,
+         'factory_id' => $request->factory_id,
+]);
 
         return response()->json([
             'status' => true,
@@ -79,6 +83,7 @@ class MachineController extends Controller
             'machine_id' => $request->machine_id,
             'machine_type' => $request->machine_type,
             'time' => $request->time,
+            'factory_id' => $request->factory_id,
         ]);
 
         return response()->json([
