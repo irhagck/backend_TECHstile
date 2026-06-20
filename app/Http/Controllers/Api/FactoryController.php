@@ -101,4 +101,35 @@ class FactoryController extends Controller
             'message' => 'Factory deleted successfully'
         ]);
     }
+
+public function dashboard($id)
+{
+    $factory = Factory::find($id);
+
+    if (!$factory) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Factory not found'
+        ], 404);
+    }
+
+    return response()->json([
+        'status' => true,
+        'data' => [
+            'health' => [
+                'healthIndex' => 85,
+                'insight' => 'Factory running normally'
+            ],
+            'production' => [
+                'value' => 120,
+                'growth' => 10
+            ],
+            'revenue' => [
+                'amount' => 2.5,
+                'progress' => 0.6,
+                'growth' => 8
+            ]
+        ]
+    ]);
+}
 }

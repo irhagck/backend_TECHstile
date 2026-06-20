@@ -76,6 +76,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
     Route::middleware(['permission:view factories'])->prefix('factories')->group(function () {
         Route::get('allfactories',        [FactoryController::class, 'index']);
+        Route::get('/factories/dashboard/{id}', [FactoryController::class, 'dashboard']);
+        Route::get('/productions/factory/{factoryId}', [ProductionController::class, 'byFactory']);
         Route::post('addfactory',         [FactoryController::class, 'store']);
         Route::get('editfactory/{id}',    [FactoryController::class, 'show']);
         Route::put('updatefactory/{id}',  [FactoryController::class, 'update']);

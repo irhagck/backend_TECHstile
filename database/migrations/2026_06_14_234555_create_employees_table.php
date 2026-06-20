@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
 
+            $table->unsignedBigInteger('factory_id')->nullable();
+
             $table->string('employee_id')->nullable();
 
             $table->time('shift_starttime')->nullable();
