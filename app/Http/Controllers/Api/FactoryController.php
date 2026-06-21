@@ -102,34 +102,69 @@ class FactoryController extends Controller
         ]);
     }
 
+// Factory Dashboard
 public function dashboard($id)
 {
     $factory = Factory::find($id);
 
-    if (!$factory) {
+    if(!$factory){
         return response()->json([
-            'status' => false,
-            'message' => 'Factory not found'
-        ], 404);
+            'status'=>false,
+            'message'=>'Factory not found'
+        ],404);
     }
 
+
+    // approved production only
+    $productions = Production::where('factory_id',$id)
+        ->where('status',2)
+        ->get();
+
+
+    // today units
+    $todayUnits = Production::where('factory_id',$id)
+        ->where('status',2)
+        ->whereDate('created_at',Carbon::today())
+        ->sum('ready_production');
+
+
+    // weekly units
+    $weeklyUnits = Production::where('factory_id',$id)
+        ->where('status',2)
+        ->whereBetween('created_at',[
+            Carbon::now()->startOfWeek(),
+            Carbon::now()->endOfWeek()
+        ])
+        ->sum('ready_production');
+
+
+    // varieties
+    $varieties = $productions
+        ->pluck('variety_type')
+        ->unique()
+        ->values();
+
+
+
     return response()->json([
-        'status' => true,
-        'data' => [
-            'health' => [
-                'healthIndex' => 85,
-                'insight' => 'Factory running normally'
-            ],
-            'production' => [
-                'value' => 120,
-                'growth' => 10
-            ],
-            'revenue' => [
-                'amount' => 2.5,
-                'progress' => 0.6,
-                'growth' => 8
-            ]
-        ]
+
+        'status'=>true,
+
+        'factory'=>[
+            'id'=>$factory->id,
+            'name'=>$factory->name,
+            'city'=>$factory->city,
+            'address'=>$factory->address,
+        ],
+
+        'today_units'=>$todayUnits,
+
+        'weekly_units'=>$weeklyUnits,
+
+        'total_varieties'=>$varieties->count(),
+
+        'varieties'=>$varieties,
+
     ]);
-}
+  }
 }

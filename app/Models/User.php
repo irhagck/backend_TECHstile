@@ -17,7 +17,7 @@ class User extends Authenticatable
      'phone_no',
      'cnic',
      'address',
-     'pic',
+    //  'pic',
      'employee_details',
     ];
 

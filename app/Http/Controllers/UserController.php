@@ -8,16 +8,36 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    // ✅ 1. Show All Users
-    public function index()
-    {
-        $users = User::all();
+        public function managers()
+{
+    $users = User::role('manager')->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $users
-        ], 200);
-    }
+    return response()->json([
+        'success' => true,
+        'data' => $users
+    ]);
+}
+
+public function employees()
+{
+    $users = User::role('employee')->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $users
+    ]);
+}
+
+    // ✅ 1. Show All Users
+   public function index()
+{
+    $users = User::with('roles')->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $users
+    ], 200);
+}
 
     // ✅ 2. Add User
     public function store(Request $request)
@@ -30,7 +50,7 @@ class UserController extends Controller
          'cnic'              => 'required|string|max:20|unique:users,cnic',
          'address'           => 'nullable|string',
          'pic'               => 'nullable|string',
-        //  'role'              => 'required|string',
+         'role'              => 'required|string',
          'employee_details'  => 'nullable|string',
         ]);
 
@@ -141,4 +161,3 @@ public function update(Request $request, $id)
         ], 200);
     }
 }
-

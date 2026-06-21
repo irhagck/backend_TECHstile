@@ -13,6 +13,7 @@ class Production extends Model
         'ready_production',
         'machine_id',
         'employee_id',
+        'manager_id',
         'factory_id',
         'shift_start',
         'shift_end',
@@ -23,6 +24,10 @@ class Production extends Model
 }
     public function employee() {   // Define the relationship with the Employee model
     return $this->belongsTo(Employee::class);
+}
+
+public function manager() {
+    return $this->belongsTo(Manager::class);
 }
 
 public function machine() {

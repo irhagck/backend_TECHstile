@@ -16,7 +16,7 @@ return new class extends Migration
 
           $table->unsignedBigInteger('factory_id');
 
-          $table->string('machine_id', 100);
+          $table->string('machine_name', 100);
           $table->string('machine_type', 100);
 
           $table->dateTime('time');
