@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\EmployeeDashController;
 use App\Http\Controllers\Api\AttendenceController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\ManagerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +27,38 @@ Route::get(
     '/employee/profile/{id}',
     [EmployeeDashController::class, 'profile']
 );
- 
+ /*
+|--------------------------------------------------------------------------
+| MANAGER ROUTES 
+| 
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('manager')->group(function(){
+
+
+Route::get(
+'dashboard/{managerId}',
+[ManagerController::class,'dashboard']
+);
+
+
+
+Route::get(
+'machines/{managerId}',
+[ManagerController::class,'machines']
+);
+
+
+
+Route::get(
+'employees/{managerId}',
+[ManagerController::class,'employees']
+);
+
+
+
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -80,7 +112,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('editfactory/{id}',    [FactoryController::class, 'show']);
         Route::put('updatefactory/{id}',  [FactoryController::class, 'update']);
         Route::delete('deletefactory/{id}', [FactoryController::class, 'destroy']);
-    });
+        Route::get('dashboard/{id}',[FactoryController::class,'dashboard']);
+});
 
     /*
     |---------------------------
@@ -197,4 +230,5 @@ Route::put(
 Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
 //employee history route
 Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
+
 }); // auth:sanctum group end
