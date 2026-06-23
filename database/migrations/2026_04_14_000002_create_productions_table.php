@@ -20,6 +20,10 @@ return new class extends Migration
 
             $table->integer('ready_production')->nullable();
 
+            $table->integer('waste_production')->nullable();
+
+            $table->integer('remaining')->nullable();
+
             $table->unsignedBigInteger('machine_id')->nullable();
 
             $table->unsignedBigInteger('employee_id')->nullable();

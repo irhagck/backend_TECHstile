@@ -11,6 +11,8 @@ class Production extends Model
         'variety_type',
         'total_length',
         'ready_production',
+        'waste_production',
+        'remaining',
         'machine_id',
         'employee_id',
         'manager_id',

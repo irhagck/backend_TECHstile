@@ -37,6 +37,8 @@ public function index()
         'variety_type'=>'required',
         'total_length'=>'required',
         'ready_production'=>'required',
+        'waste_production'=>'required',
+        'remaining'=>'required',
     ]);
 
 
@@ -70,6 +72,8 @@ public function index()
         'variety_type'=>$request->variety_type,
         'total_length'=>$request->total_length,
         'ready_production'=>$request->ready_production,
+        'waste_production'=>$request->waste_production,
+        'remaining'=>$request->remaining,
 
         // yahan copy hogi
         'batch_id'=>$batchId,
