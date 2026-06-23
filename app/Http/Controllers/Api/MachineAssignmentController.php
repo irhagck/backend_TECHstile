@@ -15,6 +15,8 @@ class MachineAssignmentController extends Controller
             'user_id'     => 'required|integer',
             'factory_id'  => 'required|integer',
             'machine_ids' => 'required|array',
+            'variety_type' => 'required|string',
+            'total_length' => 'required|numeric',
         ]);
 
         foreach ($request->machine_ids as $machineId) {
@@ -33,8 +35,8 @@ class MachineAssignmentController extends Controller
              'factory_id'  => $request->factory_id,
              'machine_id'  => $machineId,
 
-             'variety_type'     => 'assigned',
-             'total_length'     => 0,
+             'variety_type'     => $request->variety_type,
+             'total_length'     => $request->total_length,
              'ready_production' => 0,
 
              'shift_start' => now(),

@@ -19,10 +19,16 @@ class User extends Authenticatable
      'address',
     //  'pic',
      'employee_details',
+     'factory_id'
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    public function factory()
+    {
+    return $this->belongsTo(Factory::class);
+    }
 }

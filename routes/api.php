@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AttendenceController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\MachineAssignmentController;
+use App\Http\Controllers\Api\FactoryUsersController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +39,7 @@ Route::get(
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
+    Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
 
     // Route::get('/profile', [AuthController::class, 'profile']);
 
@@ -136,6 +138,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     |---------------------------
     */
     Route::prefix('employees')->group(function () {
+         Route::get('/employees/factory/{factoryId}',[EmployeeController::class, 'byFactory']);
         Route::get('/all_employee',          [EmployeeController::class, 'index'])->middleware('permission:view employees');
         Route::post('/add_employee',         [EmployeeController::class, 'store'])->middleware('permission:create employees');
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');

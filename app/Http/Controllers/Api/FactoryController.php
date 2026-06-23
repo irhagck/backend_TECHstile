@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Factory;
+use App\Models\Production;
+use App\Models\Machine;
+use App\Models\User;
 
 class FactoryController extends Controller
 {
@@ -102,69 +105,47 @@ class FactoryController extends Controller
         ]);
     }
 
-// Factory Dashboard
-public function dashboard($id)
+    public function dashboard($id)
 {
     $factory = Factory::find($id);
 
-    if(!$factory){
-        return response()->json([
-            'status'=>false,
-            'message'=>'Factory not found'
-        ],404);
+    if (!$factory) {
+        return response()->json(['message' => 'Factory not found'], 404);
     }
 
+    $productions = Production::where('factory_id', $id)->get();
 
-    // approved production only
-    $productions = Production::where('factory_id',$id)
-        ->where('status',2)
-        ->get();
-
-
-    // today units
-    $todayUnits = Production::where('factory_id',$id)
-        ->where('status',2)
-        ->whereDate('created_at',Carbon::today())
-        ->sum('ready_production');
-
-
-    // weekly units
-    $weeklyUnits = Production::where('factory_id',$id)
-        ->where('status',2)
-        ->whereBetween('created_at',[
-            Carbon::now()->startOfWeek(),
-            Carbon::now()->endOfWeek()
-        ])
-        ->sum('ready_production');
-
-
-    // varieties
-    $varieties = $productions
-        ->pluck('variety_type')
-        ->unique()
+    // ✅ Variety ke hisaab se group karo aur ready_production sum karo
+    $varietiesGrouped = $productions
+        ->groupBy('variety_type')
+        ->map(function ($group, $varietyName) {
+            return [
+                'variety_type'     => $varietyName,
+                'ready_production' => $group->sum('ready_production'),
+                // 'total_length'     => $group->sum('total_length'),
+            ];
+        })
         ->values();
 
-
-
     return response()->json([
+        "status"  => true,
+        "factory" => $factory,
 
-        'status'=>true,
+        "today_units" => $productions
+            ->where('created_at', '>=', now()->startOfDay())
+            ->sum('total_length'),
 
-        'factory'=>[
-            'id'=>$factory->id,
-            'name'=>$factory->name,
-            'city'=>$factory->city,
-            'address'=>$factory->address,
-        ],
+        "weekly_units" => $productions
+            ->where('created_at', '>=', now()->subDays(7))
+            ->sum('total_length'),
 
-        'today_units'=>$todayUnits,
+        "total_varieties" => $productions->pluck('variety_type')->unique()->count(),
 
-        'weekly_units'=>$weeklyUnits,
+        "machines_count"  => Machine::where('factory_id', $id)->count(),
+        "employees_count" => $productions->pluck('employee_id')->unique()->count(),
 
-        'total_varieties'=>$varieties->count(),
-
-        'varieties'=>$varieties,
-
+        // ✅ Ab varieties grouped data hai — sirf names nahi
+        "varieties" => $varietiesGrouped,
     ]);
-  }
+}
 }
