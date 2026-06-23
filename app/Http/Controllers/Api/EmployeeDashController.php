@@ -12,125 +12,146 @@ use App\Models\Attendence;
 use App\Models\User;
 class EmployeeDashController extends Controller
 {
- public function dashboard(Request $request, $id)
+
+
+// employee dashboard
+public function dashboard(Request $request, $id)
 {
     $employee = Employee::where('user_id', $id)->first();
 
     if (!$employee) {
-        return response()->json(['message' => 'Employee not found'], 404);
+        return response()->json([
+            'message' => 'Employee not found'
+        ],404);
     }
 
+
+    // 🔥 ONLY LAST 7 DAYS + APPROVED
     $productions = Production::with([
         'machineemploye',
         'employeedetails.user'
     ])
     ->where('employee_id', $employee->id)
     ->where('status', 2)
+    ->whereBetween('created_at',[
+        Carbon::now()->subDays(7),
+        Carbon::now()
+    ])
     ->get();
 
-    // 🔥 GROUP BY MACHINE + VARIETY + BATCH (IMPORTANT)
-    $grouped = $productions->groupBy(function ($item) {
-        return $item->machine_id . '_' . $item->variety_type . '_' . $item->batch_id;
+
+
+    // group machine + variety + batch
+    $grouped = $productions->groupBy(function($item){
+
+        return 
+        $item->machine_id.'_'
+        .$item->variety_type.'_'
+        .$item->batch_id;
+
     });
 
-    $data = $grouped->map(function ($group) {
+
+
+    $data = $grouped->map(function($group){
+
 
         $first = $group->first();
 
-        // ✅ READY PRODUCTION = SUM
-        $readyProduction = $group->sum('ready_production');
 
-        // ❗ TOTAL LENGTH = TAKE SINGLE (NOT SUM)
+        // total ready production
+        $readyProduction = $group->sum(
+            'ready_production'
+        );
+
+
         $totalLength = $first->total_length;
 
+
+
         $progress = ($totalLength > 0)
-            ? round(($readyProduction / $totalLength) * 100, 2)
-            : 0;
+        ? round(
+            ($readyProduction / $totalLength)*100,
+            2
+          )
+        : 0;
+
+
 
         return [
-            'machine_id' => $first->machine_id,
-            'machine_type' => $first->machineemploye->machine_type ?? '',
-            'machine_status' => $first->machineemploye->status ?? '',
 
-            'employee_name' => $first->employeedetails?->user?->name ?? '',
-            'variety_type' => $first->variety_type ?? '',
-            'batch_id' => $first->batch_id ?? '',
+            'machine_id'=>$first->machine_id,
 
-            // 🔥 IMPORTANT FIX
-            'ready_production' => $readyProduction,
-            'total_length' => $totalLength,
+            'machine_type'=>
+            $first->machineemploye?->machine_type ?? '',
 
-            'progress' => $progress,
+
+            'machine_status'=>
+            $first->machineemploye?->status ?? '',
+
+
+            'employee_name'=>
+            $first->employeedetails?->user?->name ?? '',
+
+
+
+            'variety_type'=>
+            $first->variety_type ?? '',
+
+
+
+            'batch_id'=>
+            $first->batch_id ?? '',
+
+
+
+            'ready_production'=>
+            $readyProduction,
+
+
+            'total_length'=>
+            $totalLength,
+
+
+            'progress'=>
+            $progress,
+
+            // optional
+            'from_date'=>
+            Carbon::now()->subDays(7)->format('Y-m-d'),
+
+            'to_date'=>
+            Carbon::now()->format('Y-m-d'),
+
         ];
+
     })->values();
 
+
+
     return response()->json([
-        'employee_name' => $employee->user->name ?? '',
-        'total_machines' => $data->count(),
-        'total_production' => $data->sum('total_length'),
-        'total_ready_production' => $data->sum('ready_production'),
-        'machines' => $data,
+
+        'employee_name'=>
+        $employee->user->name ?? '',
+
+
+        'total_machines'=>
+        $data->count(),
+
+
+        'total_production'=>
+        $data->sum('total_length'),
+
+
+
+        'total_ready_production'=>
+        $data->sum('ready_production'),
+
+
+
+        'machines'=>$data
+
     ]);
-}
-
-    // /profile method for employee
-public function profile(Request $request, $id)
-{
-    $user = User::with('roles')->find($id);
-
-    if (!$user) {
-        return response()->json([
-            'success' => false,
-            'message' => 'User not found'
-        ], 404);
-    }
-
-    $employee = Employee::where('user_id', $id)->first();
-
-    $totalMachines = 0;
-    $totalProduction = 0;
-    $totalReadyProduction = 0;
-    $attendanceCount = 0;
-
-   if ($employee) {
-
-    // 🔥 ONLY APPROVED PRODUCTIONS
-    $productions = Production::where('employee_id', $employee->id)
-        ->where('status', 2)
-        ->get();
-
-    // 🔥 GROUP (same machine + batch + variety)
-    $grouped = $productions->groupBy(function ($item) {
-        return $item->machine_id . '_' . $item->variety_type . '_' . $item->batch_id;
-    });
-
-    $totalMachines = $grouped->count();
-
-    $totalProduction = $grouped->sum(function ($group) {
-        return $group->first()->total_length;
-    });
-
-    $totalReadyProduction = $grouped->sum(function ($group) {
-        return $group->sum('ready_production');
-    });
-
-    $attendanceCount = Attendence::where(
-        'employee_id',
-        $employee->id
-    )->count();
-}
-
-   return response()->json([
-    'success' => true,
-    'data' => [
-        ...$user->toArray(),
-
-        'total_machines' => $totalMachines,
-        'total_production' => $totalProduction,
-        'total_ready_production' => $totalReadyProduction,
-        'attendance_count' => $attendanceCount,
-    ]
-]);
 }
 //employee side machine details
  public function machineDetails(Request $request, $id)
@@ -182,7 +203,12 @@ public function profile(Request $request, $id)
         ->whereYear('created_at', Carbon::now()->year)
         ->sum('ready_production');
 
-    $attendanceCount = Attendence::where('employee_id', $employee->id)->count();
+   //  Check today attendance (timestamp based)
+$alreadyMarkedToday = Attendence::where('employee_id', $employee->id)
+    ->where('machine_id', $id)
+    ->where('type', 'IN')
+    ->whereDate('timestamp', Carbon::today())
+    ->exists();
 
     return response()->json([
         'machine_id'         => $machine->id,
@@ -203,10 +229,94 @@ public function profile(Request $request, $id)
         'daily_production'   => $dailyProduction,
         'weekly_production'  => $weeklyProduction,
         'yearly_production'  => $yearlyProduction,
-        'attendance_count'   => $attendanceCount,
+       'already_marked_today' => $alreadyMarkedToday,
     ]);
 }
+// employee profile page 
+public function profile(Request $request, $id)
+{
+    $user = User::with('roles')->find($id);
 
+    if (!$user) {
+        return response()->json([
+            'message' => 'User not found'
+        ], 404);
+    }
+
+    $employee = Employee::where('user_id', $id)->first();
+
+    $totalMachines        = 0;
+    $totalProduction      = 0;
+    $totalReadyProduction = 0;
+    $attendanceCount      = 0;
+    $data                 = collect();
+
+    if ($employee) {
+
+        // 🔥 ONLY LAST 7 DAYS + APPROVED
+        $productions = Production::with([
+            'machineemploye',
+            'employeedetails.user'
+        ])
+        ->where('employee_id', $employee->id)
+        ->where('status', 2)
+        ->whereBetween('created_at', [
+            Carbon::now()->subDays(7),
+            Carbon::now()
+        ])
+        ->get();
+
+        // group machine + variety + batch
+        $grouped = $productions->groupBy(function ($item) {
+            return $item->machine_id . '_'
+                . $item->variety_type . '_'
+                . $item->batch_id;
+        });
+
+        $data = $grouped->map(function ($group) {
+
+            $first = $group->first();
+
+            $readyProduction = $group->sum('ready_production');
+            $totalLength     = $first->total_length;
+
+            $progress = ($totalLength > 0)
+                ? round(($readyProduction / $totalLength) * 100, 2)
+                : 0;
+
+            return [
+                'machine_id'       => $first->machine_id,
+                'machine_type'     => $first->machineemploye?->machine_type ?? '',
+                'machine_status'   => $first->machineemploye?->status ?? '',
+                'employee_name'    => $first->employeedetails?->user?->name ?? '',
+                'variety_type'     => $first->variety_type ?? '',
+                'batch_id'         => $first->batch_id ?? '',
+                'ready_production' => $readyProduction,
+                'total_length'     => $totalLength,
+                'progress'         => $progress,
+                'from_date'        => Carbon::now()->subDays(7)->format('Y-m-d'),
+                'to_date'          => Carbon::now()->format('Y-m-d'),
+            ];
+        })->values();
+
+        $totalMachines        = $data->count();
+        $totalProduction      = $data->sum('total_length');
+        $totalReadyProduction = $data->sum('ready_production');
+        $attendanceCount      = Attendence::where('employee_id', $employee->id)->count();
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            ...$user->toArray(),
+            'total_machines'         => $totalMachines,
+            'total_production'       => $totalProduction,
+            'total_ready_production' => $totalReadyProduction,
+            'attendance_count'       => $attendanceCount,
+            'machines'               => $data,
+        ]
+    ]);
+}
 // employee history functions
      public function employeeHistory($id)
 {

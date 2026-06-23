@@ -8,7 +8,8 @@ use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Machine;
 use App\Models\User;
-
+use Carbon\Carbon;  
+use App\Models\Employee;
 class FactoryController extends Controller
 {
     // 1. Get all factories
