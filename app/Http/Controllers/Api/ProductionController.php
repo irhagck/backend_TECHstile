@@ -8,6 +8,7 @@ use App\Models\Production;
 use App\Models\Attendence;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Factory;
 class ProductionController extends Controller
 {
     // 1. Show all productions
@@ -42,47 +43,73 @@ public function index()
     ]);
 
 
-    // owner assignment wali batch copy karo
+    // copy the owner assignment batch id 
     $lastProduction = Production::where('machine_id',$request->machine_id)
         ->whereNotNull('batch_id')
         ->latest()
         ->first();
-        if($lastProduction){
-
-    $totalDone = Production::where('machine_id',$request->machine_id)
-    ->where('batch_id',$lastProduction->batch_id)
-    ->sum('ready_production');
 
 
-    if($totalDone >= $lastProduction->total_length){
-        return response()->json([
-            "message"=>"Production already completed"
-        ],400);
+    if($lastProduction){
+
+        $totalDone = Production::where('machine_id',$request->machine_id)
+        ->where('batch_id',$lastProduction->batch_id)
+        ->sum('ready_production');
+
+
+        if($totalDone >= $lastProduction->total_length){
+            return response()->json([
+                "message"=>"Production already completed"
+            ],400);
+        }
     }
-}
-   
+
+
     $batchId = $lastProduction?->batch_id;
+    $managerId = $lastProduction?->manager_id;
+    $shiftStart = $lastProduction?->shift_start;
+    $shiftEnd   = $lastProduction?->shift_end;
 
-    $production = Production::create([
+   //access employee id based on user id 
+    $employee = Employee::where('user_id',$request->employee_id)
+        ->first();
 
-        'machine_id'=>$request->machine_id,
-        'employee_id'=>$request->employee_id,
-        'factory_id'=>$request->factory_id,
 
+<<<<<<< HEAD
         'variety_type'=>$request->variety_type,
         'total_length'=>$request->total_length,
         'ready_production'=>$request->ready_production,
         'waste_production'=>$request->waste_production,
         'remaining'=>$request->remaining,
+=======
+    if(!$employee){
+        return response()->json([
+            "message"=>"Employee record not found"
+        ],404);
+    }
+>>>>>>> 1355443b2e6eb8bdaf8b71326511ba1c99ec6e31
 
-        // yahan copy hogi
-        'batch_id'=>$batchId,
 
-        'shift_start'=>$request->shift_start,
-        'shift_end'=>$request->shift_end,
+$managerId = $factory->manager_id;
 
-        'status'=>1,
-    ]);
+
+
+   $production = Production::create([
+
+
+    'machine_id'=>$request->machine_id,
+    'employee_id'=>$employee->id,
+    'factory_id'=>$request->factory_id,
+    'manager_id'=>$managerId,
+    'variety_type'=>$request->variety_type,
+    'total_length'=>$request->total_length,
+    'ready_production'=>$request->ready_production,
+    'batch_id'=>$batchId,
+    'shift_start'=>$shiftStart ?? $request->shift_start,
+    'shift_end'=>$shiftEnd ?? $request->shift_end,
+    'status'=>1,
+]);
+
     return response()->json([
         'message'=>'Production submitted successfully',
         'data'=>$production
