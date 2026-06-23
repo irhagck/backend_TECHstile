@@ -36,12 +36,12 @@ class MachineController extends Controller
         ]);
 
         $machine = Machine::create([
+            'machine_name' => $request->machine_name,
+            'machine_type' => $request->machine_type,
+            'time' => $request->time,
+            'factory_id' => $request->factory_id,
+        ]);
 
-         'machine_id' => $request->machine_id,
-         'machine_type' => $request->machine_type,
-         'time' => $request->time,
-         'factory_id' => $request->factory_id,
-]);
 
         return response()->json([
             'status' => true,

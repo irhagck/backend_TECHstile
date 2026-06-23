@@ -8,65 +8,78 @@ use App\Models\Employee;
 
 class EmployeeController extends Controller
 {
-    // 1. Show all employees
+    /**
+     * Get all employees (optional admin use)
+     */
     public function index()
     {
-        return response()->json(Employee::all(), 200);
+        return Employee::with('user')->get();
     }
 
-    // 2. Add employee
+    /**
+     * Store employee shift assignment
+     */
     public function store(Request $request)
     {
-        $employee = Employee::create($request->all());
+        $request->validate([
+            'factory_id' => 'required|exists:factories,id',
+            'user_id' => 'required|exists:users,id',
+            'shift_starttime' => 'required',
+            'shift_endtime' => 'required',
+        ]);
+
+        $employee = Employee::create([
+            'factory_id' => $request->factory_id,
+            'user_id' => $request->user_id,
+            'shift_starttime' => $request->shift_starttime,
+            'shift_endtime' => $request->shift_endtime,
+            'timestamp' => now(),
+        ]);
 
         return response()->json([
-            'message' => 'Employee created successfully',
+            'message' => 'Employee shift assigned successfully',
             'data' => $employee
-        ], 201);
+        ]);
     }
 
-    // 3. Edit (get single employee)
-    public function edit($id)
+    /**
+     * Get employees by factory (🔥 MAIN API YOU NEED)
+     */
+    public function byFactory($factoryId)
     {
-        $employee = Employee::find($id);
-
-        if (!$employee) {
-            return response()->json(['message' => 'Employee not found'], 404);
-        }
-
-        return response()->json($employee, 200);
+        return Employee::with('user')
+            ->where('factory_id', $factoryId)
+            ->get();
     }
 
-    // 4. Update employee
+    /**
+     * Update employee shift
+     */
     public function update(Request $request, $id)
     {
-        $employee = Employee::find($id);
+        $employee = Employee::findOrFail($id);
 
-        if (!$employee) {
-            return response()->json(['message' => 'Employee not found'], 404);
-        }
-
-        $employee->update($request->all());
+        $employee->update([
+            'shift_starttime' => $request->shift_starttime,
+            'shift_endtime' => $request->shift_endtime,
+        ]);
 
         return response()->json([
-            'message' => 'Employee updated successfully',
+            'message' => 'Updated successfully',
             'data' => $employee
-        ], 200);
+        ]);
     }
 
-    // 5. Delete employee
+    /**
+     * Delete employee assignment
+     */
     public function destroy($id)
     {
-        $employee = Employee::find($id);
-
-        if (!$employee) {
-            return response()->json(['message' => 'Employee not found'], 404);
-        }
-
+        $employee = Employee::findOrFail($id);
         $employee->delete();
 
         return response()->json([
-            'message' => 'Employee deleted successfully'
-        ], 200);
+            'message' => 'Deleted successfully'
+        ]);
     }
 }

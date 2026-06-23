@@ -12,15 +12,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('machines', function (Blueprint $table) {
-            $table->id();
+          $table->id();
 
-            $table->string('machine_id', 100);
-            $table->string('machine_type', 100);
+          $table->unsignedBigInteger('factory_id');
 
-            $table->dateTime('time');
+          $table->string('machine_name', 100);
+          $table->string('machine_type', 100);
 
-            $table->timestamps();
-        });
+          $table->dateTime('time');
+
+          $table->timestamps();
+});
     }
 
     /**

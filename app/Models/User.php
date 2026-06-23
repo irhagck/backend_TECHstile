@@ -17,12 +17,18 @@ class User extends Authenticatable
      'phone_no',
      'cnic',
      'address',
-     'pic',
+    //  'pic',
      'employee_details',
+     'factory_id'
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    public function factory()
+    {
+    return $this->belongsTo(Factory::class);
+    }
 }

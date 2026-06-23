@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\AttendenceController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ManagerController;
+use App\Http\Controllers\Api\MachineAssignmentController;
+use App\Http\Controllers\Api\FactoryUsersController;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +70,9 @@ Route::get(
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
+    Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
+    Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
+
     // Route::get('/profile', [AuthController::class, 'profile']);
 
     /*
@@ -108,6 +113,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
     Route::middleware(['permission:view factories'])->prefix('factories')->group(function () {
         Route::get('allfactories',        [FactoryController::class, 'index']);
+        Route::get('dashboard/{id}', [FactoryController::class, 'dashboard']);
+        Route::get('productions/factory/{factoryId}', [ProductionController::class, 'byFactory']);
         Route::post('addfactory',         [FactoryController::class, 'store']);
         Route::get('editfactory/{id}',    [FactoryController::class, 'show']);
         Route::put('updatefactory/{id}',  [FactoryController::class, 'update']);
@@ -121,7 +128,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     |---------------------------
     */
     Route::middleware(['role:owner'])->prefix('users')->group(function () {
+
         Route::get('all',           [UserController::class, 'index']);
+        Route::get('managers', [UserController::class, 'managers']);
+        Route::get('employees', [UserController::class, 'employees']);
         Route::post('add',          [UserController::class, 'store']);
         Route::get('edit/{id}',     [UserController::class, 'edit']);
         Route::put('update/{id}',   [UserController::class, 'update']);
@@ -134,7 +144,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     |---------------------------
     */
     Route::prefix('machines')->group(function () {
-        Route::get('/machines/all/{factoryId}',[MachineController::class, 'index'])->middleware('permission:view machines');
+        Route::get('/all/{factoryId}',[MachineController::class, 'index'])->middleware('permission:view machines');
         Route::post('/add_machine',     [MachineController::class, 'store'])->middleware('permission:create machines');
         Route::get('edit_machine/{id}', [MachineController::class, 'edit'])->middleware('permission:edit machines');
         Route::put('update_machine/{id}', [MachineController::class, 'update'])->middleware('permission:edit machines');
@@ -161,6 +171,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     |---------------------------
     */
     Route::prefix('employees')->group(function () {
+         Route::get('/employees/factory/{factoryId}',[EmployeeController::class, 'byFactory']);
         Route::get('/all_employee',          [EmployeeController::class, 'index'])->middleware('permission:view employees');
         Route::post('/add_employee',         [EmployeeController::class, 'store'])->middleware('permission:create employees');
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');

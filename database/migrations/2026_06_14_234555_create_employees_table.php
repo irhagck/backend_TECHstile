@@ -14,23 +14,34 @@ return new class extends Migration
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
 
+            // 🔥 Factory relation
+            $table->unsignedBigInteger('factory_id');
+
+            // 🔥 User relation (real employee user)
+            $table->unsignedBigInteger('user_id');
+
+            // Optional: keep for backward compatibility
             $table->string('employee_id')->nullable();
 
+            // Shift timing
             $table->time('shift_starttime')->nullable();
             $table->time('shift_endtime')->nullable();
 
-            // This column exists in your DB but is NOT recommended in Laravel naming
+            // Record timestamp
             $table->timestamp('timestamp')->useCurrent();
-
-            $table->unsignedBigInteger('user_id')->nullable();
 
             $table->timestamps();
 
-            // Optional foreign key (recommended if users table exists)
-            // $table->foreign('user_id')
-            //       ->references('id')
-            //       ->on('users')
-            //       ->nullOnDelete();
+            // 🔥 Foreign keys (IMPORTANT)
+            $table->foreign('factory_id')
+                ->references('id')
+                ->on('factories')
+                ->onDelete('cascade');
+
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
+                ->onDelete('cascade');
         });
     }
 

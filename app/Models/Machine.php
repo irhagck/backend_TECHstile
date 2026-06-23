@@ -29,7 +29,7 @@ class Machine extends Model
 {
     return $this->hasMany(
         Production::class,
-        'id'
+        'machine_id'
     );
 }
 }

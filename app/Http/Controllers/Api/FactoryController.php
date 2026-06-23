@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Factory;
 use App\Models\Production;
-use Carbon\Carbon;
-use App\Models\Machine;   
+use App\Models\Machine;
+use App\Models\User;
+use Carbon\Carbon;  
 use App\Models\Employee;
 class FactoryController extends Controller
 {
@@ -105,7 +106,7 @@ class FactoryController extends Controller
         ]);
     }
 
-  public function dashboard($id)
+    public function dashboard($id)
 {
     $factory = Factory::find($id);
 
