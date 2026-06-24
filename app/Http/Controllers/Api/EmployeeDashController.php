@@ -13,35 +13,61 @@ use App\Models\User;
 class EmployeeDashController extends Controller
 {
 
-
 // employee dashboard
-public function dashboard(Request $request, $id)
+ public function dashboard(Request $request, $id)
 {
     $employee = Employee::where('user_id', $id)->first();
 
     if (!$employee) {
         return response()->json([
-            'message' => 'Employee not found'
+            'message'=>'Employee not found'
         ],404);
     }
 
 
-    // 🔥 ONLY LAST 7 DAYS + APPROVED
+    // ✅ employee ki latest factory + manager find karo
+    $assignment = Production::where('employee_id',$employee->id)
+        ->latest()
+        ->first();
+
+
+    if(!$assignment){
+
+        return response()->json([
+            'message'=>'No factory assigned'
+        ],404);
+
+    }
+
+
+    $factoryId = $assignment->factory_id;
+    $managerId = $assignment->manager_id;
+
+
+
+    // 🔥 ONLY employee + same factory + same manager + approved
     $productions = Production::with([
         'machineemploye',
         'employeedetails.user'
     ])
+
     ->where('employee_id', $employee->id)
-    ->where('status', 2)
+
+    // ✅ added filters
+    ->where('factory_id',$factoryId)
+    ->where('manager_id',$managerId)
+
+    ->where('status',2)
+
     ->whereBetween('created_at',[
         Carbon::now()->subDays(7),
         Carbon::now()
     ])
+
     ->get();
 
 
 
-    // group machine + variety + batch
     $grouped = $productions->groupBy(function($item){
 
         return 
@@ -55,32 +81,28 @@ public function dashboard(Request $request, $id)
 
     $data = $grouped->map(function($group){
 
+        $first=$group->first();
 
-        $first = $group->first();
 
-
-        // total ready production
-        $readyProduction = $group->sum(
+        $readyProduction=$group->sum(
             'ready_production'
         );
 
 
-        $totalLength = $first->total_length;
-
+        $totalLength=$first->total_length;
 
 
         $progress = ($totalLength > 0)
-        ? round(
-            ($readyProduction / $totalLength)*100,
-            2
-          )
-        : 0;
-
+        ?
+        round(($readyProduction/$totalLength)*100,2)
+        :
+        0;
 
 
         return [
 
             'machine_id'=>$first->machine_id,
+
 
             'machine_type'=>
             $first->machineemploye?->machine_type ?? '',
@@ -94,15 +116,12 @@ public function dashboard(Request $request, $id)
             $first->employeedetails?->user?->name ?? '',
 
 
-
             'variety_type'=>
-            $first->variety_type ?? '',
-
+            $first->variety_type,
 
 
             'batch_id'=>
-            $first->batch_id ?? '',
-
+            $first->batch_id,
 
 
             'ready_production'=>
@@ -113,10 +132,13 @@ public function dashboard(Request $request, $id)
             $totalLength,
 
 
-            'progress'=>
-            $progress,
+            'progress'=>$progress,
+
 
             // optional
+            'factory_id'=>$first->factory_id,
+            'manager_id'=>$first->manager_id,
+
             'from_date'=>
             Carbon::now()->subDays(7)->format('Y-m-d'),
 
@@ -131,8 +153,14 @@ public function dashboard(Request $request, $id)
 
     return response()->json([
 
+
         'employee_name'=>
         $employee->user->name ?? '',
+
+
+        'factory_id'=>$factoryId,
+
+        'manager_id'=>$managerId,
 
 
         'total_machines'=>
@@ -143,10 +171,8 @@ public function dashboard(Request $request, $id)
         $data->sum('total_length'),
 
 
-
         'total_ready_production'=>
         $data->sum('ready_production'),
-
 
 
         'machines'=>$data
@@ -185,8 +211,8 @@ public function dashboard(Request $request, $id)
         ->where('batch_id', $production->batch_id)
         ->sum('ready_production');
 
-    $remaining = max(0, $production->total_length - $totalReadyProduction);
-    $canAddProduction = $remaining > 0;
+    $remaining = $production->remaining;
+   $canAddProduction = $remaining > 0;
 
     $dailyProduction = Production::where('machine_id', $id)
         ->whereDate('created_at', Carbon::today())
@@ -251,21 +277,41 @@ public function profile(Request $request, $id)
     $attendanceCount      = 0;
     $data                 = collect();
 
-    if ($employee) {
+   if ($employee) {
 
-        // 🔥 ONLY LAST 7 DAYS + APPROVED
-        $productions = Production::with([
-            'machineemploye',
-            'employeedetails.user'
-        ])
-        ->where('employee_id', $employee->id)
-        ->where('status', 2)
-        ->whereBetween('created_at', [
-            Carbon::now()->subDays(7),
-            Carbon::now()
-        ])
-        ->get();
 
+    // 🔥 employee ki current factory + manager find karo
+    $lastProduction = Production::where(
+        'employee_id',
+        $employee->id
+    )
+    ->latest()
+    ->first();
+
+
+    $factoryId = $lastProduction?->factory_id;
+    $managerId = $lastProduction?->manager_id;
+
+
+
+    // 🔥 ONLY SAME EMPLOYEE + SAME FACTORY + SAME MANAGER
+    $productions = Production::with([
+        'machineemploye',
+        'employeedetails.user'
+    ])
+    ->where('employee_id', $employee->id)
+
+    ->where('factory_id',$factoryId)
+
+    ->where('manager_id',$managerId)
+
+    ->where('status', 2)
+
+    ->whereBetween('created_at', [
+        Carbon::now()->subDays(7),
+        Carbon::now()
+    ])
+    ->get();
         // group machine + variety + batch
         $grouped = $productions->groupBy(function ($item) {
             return $item->machine_id . '_'
@@ -328,16 +374,45 @@ public function profile(Request $request, $id)
         ],404);
     }
 
+    // ======================
+// GET CURRENT FACTORY + MANAGER
+// ======================
+
+$lastProduction = Production::where(
+    'employee_id',
+    $employee->id
+)
+->latest()
+->first();
+
+
+$factoryId = $lastProduction?->factory_id;
+$managerId = $lastProduction?->manager_id;
+
+if(!$lastProduction){
+    return response()->json([
+        'pending'=>[],
+        'completed'=>[],
+        'daily'=>0,
+        'weekly'=>0,
+        'monthly'=>0,
+    ]);
+}
 
     // ======================
     // PENDING
     // ======================
 
     $pending = Production::with([
-        'machine'
-    ])
-    ->where('employee_id',$employee->id)
-    ->where('status',1)
+    'machine'
+])
+->where('employee_id',$employee->id)
+
+->where('factory_id',$factoryId)
+
+->where('manager_id',$managerId)
+
+->where('status',1)
     ->latest()
     ->get();
 
@@ -346,11 +421,16 @@ public function profile(Request $request, $id)
     // APPROVED
     // ======================
 
-    $approved = Production::with([
-        'machine'
-    ])
-    ->where('employee_id',$employee->id)
-    ->where('status',2)
+   $approved = Production::with([
+    'machine'
+])
+->where('employee_id',$employee->id)
+
+->where('factory_id',$factoryId)
+
+->where('manager_id',$managerId)
+
+->where('status',2)
     ->get();
 
 
@@ -404,8 +484,13 @@ public function profile(Request $request, $id)
 
 
     $daily =
-    Production::where('employee_id',$employee->id)
-    ->where('status',2)
+   Production::where('employee_id',$employee->id)
+
+->where('factory_id',$factoryId)
+
+->where('manager_id',$managerId)
+
+->where('status',2)
     ->whereDate(
         'created_at',
         today()
@@ -414,9 +499,14 @@ public function profile(Request $request, $id)
 
 
 
-    $weekly =
-    Production::where('employee_id',$employee->id)
-    ->where('status',2)
+   $weekly =
+Production::where('employee_id',$employee->id)
+
+->where('factory_id',$factoryId)
+
+->where('manager_id',$managerId)
+
+->where('status',2)
     ->whereBetween(
         'created_at',
         [
@@ -428,9 +518,14 @@ public function profile(Request $request, $id)
 
 
 
-    $monthly =
-    Production::where('employee_id',$employee->id)
-    ->where('status',2)
+   $monthly =
+Production::where('employee_id',$employee->id)
+
+->where('factory_id',$factoryId)
+
+->where('manager_id',$managerId)
+
+->where('status',2)
     ->whereMonth(
         'created_at',
         now()->month

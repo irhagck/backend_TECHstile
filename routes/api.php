@@ -199,7 +199,7 @@ Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'ma
 
 Route::prefix('productions')->group(function () {
 // Production enter karna
-Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
+//Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
 
   Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');
