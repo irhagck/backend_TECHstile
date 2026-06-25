@@ -74,20 +74,11 @@ public function index()
     $employee = Employee::where('user_id',$request->employee_id)
         ->first();
 
-
-<<<<<<< HEAD
-        'variety_type'=>$request->variety_type,
-        'total_length'=>$request->total_length,
-        'ready_production'=>$request->ready_production,
-        'waste_production'=>$request->waste_production,
-        'remaining'=>$request->remaining,
-=======
     if(!$employee){
         return response()->json([
             "message"=>"Employee record not found"
         ],404);
     }
->>>>>>> 1355443b2e6eb8bdaf8b71326511ba1c99ec6e31
 
 
 $managerId = $factory->manager_id;
