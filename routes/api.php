@@ -87,6 +87,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
     Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
+    Route::get('/user/profile/{id}',[EmployeeDashController::class,'userProfile']);
+
     /*
     |---------------------------
     | ROLES (OWNER ONLY)

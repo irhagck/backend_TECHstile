@@ -14,4 +14,12 @@ class Factory extends Model
         'address',
         'city',
     ];
+
+    public function manager()
+{
+    return $this->belongsTo(
+        User::class,
+        'manager_id'
+    );
+}
 }

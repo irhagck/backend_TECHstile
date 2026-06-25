@@ -50,8 +50,24 @@ public function index()
 
     $employee = Employee::where('user_id', $request->employee_id)->first();
 
+<<<<<<< HEAD
+    $batchId = $lastProduction?->batch_id;
+    $managerId = $lastProduction?->manager_id;
+    $shiftStart = $lastProduction?->shift_start;
+    $shiftEnd   = $lastProduction?->shift_end;
+
+   //access employee id based on user id 
+    $employee = Employee::where('user_id',$request->employee_id)
+        ->first();
+
+    if(!$employee){
+        return response()->json([
+            "message"=>"Employee record not found"
+        ],404);
+=======
     if (!$employee) {
         return response()->json(["message" => "Employee not found"], 404);
+>>>>>>> fe9b0c82921ef33ac30ff2a5a2b5a7d0a5c19091
     }
 
     // 🔥 LAST PRODUCTION GET
