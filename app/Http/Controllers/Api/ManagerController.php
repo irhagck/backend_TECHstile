@@ -121,4 +121,47 @@ class ManagerController extends Controller
             "employees" => $employees
         ]);
     }
+    // manager side employee details 
+    public function employeeDetails($employeeId)
+{
+    $employee = Employee::with('user')
+        ->find($employeeId);
+
+    if (!$employee) {
+        return response()->json([
+            'message' => 'Employee not found'
+        ], 404);
+    }
+
+    $productions = Production::where(
+        'employee_id',
+        $employee->id
+    )->get();
+
+    return response()->json([
+
+        'employee_id' => $employee->id,
+
+        'name' => $employee->user?->name,
+
+        'email' => $employee->user?->email,
+
+        'shift_start' => $employee->shift_starttime,
+
+        'shift_end' => $employee->shift_endtime,
+
+        'total_production' => $productions->sum('ready_production'),
+
+        'total_waste' => $productions->sum('waste_production'),
+
+        'machines_worked' => $productions
+            ->pluck('machine_id')
+            ->unique()
+            ->count(),
+
+        'total_entries' => $productions->count(),
+
+        'created_at' => $employee->created_at,
+    ]);
+}
 }

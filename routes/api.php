@@ -61,6 +61,11 @@ Route::get(
 
 
 });
+//manager side employees details
+Route::get(
+    '/manager/employee-details/{employeeId}',
+    [ManagerController::class, 'employeeDetails']
+);
 
 /*
 |--------------------------------------------------------------------------
