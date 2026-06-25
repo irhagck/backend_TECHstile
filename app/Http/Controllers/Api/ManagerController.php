@@ -11,143 +11,114 @@ use Illuminate\Http\Request;
 
 class ManagerController extends Controller
 {
-
-    // DASHBOARD BY MANAGER ID
+    // ==========================
+    // DASHBOARD
+    // ==========================
     public function dashboard($managerId)
     {
-
-        // manager ki factory production se find
-        $factoryId = Production::where('manager_id',$managerId)
+        // Manager ki assigned factory
+        $factoryId = Production::where('manager_id', $managerId)
             ->value('factory_id');
 
-
-        if(!$factoryId){
+        if (!$factoryId) {
             return response()->json([
-                "message"=>"No factory assigned"
-            ],404);
+                "message" => "No factory assigned"
+            ], 404);
         }
-
 
         $factory = Factory::find($factoryId);
 
-
-
-        $productions = Production::where('manager_id',$managerId)
+        // Sirf isi manager aur isi factory ki productions
+        $productions = Production::where('manager_id', $managerId)
+            ->where('factory_id', $factoryId)
             ->get();
 
-
-
         $varieties = $productions
-        ->groupBy('variety_type')
-        ->map(function($item,$name){
+            ->groupBy('variety_type')
+            ->map(function ($item, $name) {
 
-            return [
+                return [
+                    "variety_type" => $name,
+                    "ready_production" => $item->sum('ready_production')
+                ];
 
-                "variety_type"=>$name,
-
-                "ready_production"=>$item->sum('ready_production')
-            ];
-
-        })
-        ->values();
-
-
+            })
+            ->values();
 
         return response()->json([
 
-            "status"=>true,
+            "status" => true,
 
-            "factory"=>$factory,
+            "factory" => $factory,
 
+            "today_units" => $productions
+                ->where('created_at', '>=', now()->startOfDay())
+                ->sum('total_length'),
 
-            "today_units"=>$productions
-            ->where('created_at','>=',now()->startOfDay())
-            ->sum('total_length'),
+            "weekly_units" => $productions
+                ->where('created_at', '>=', now()->subDays(7))
+                ->sum('total_length'),
 
+            "total_varieties" => $varieties->count(),
 
-            "weekly_units"=>$productions
-            ->where('created_at','>=',now()->subDays(7))
-            ->sum('total_length'),
+            "machines_count" => Machine::where(
+                'factory_id',
+                $factoryId
+            )->count(),
 
+            "employees_count" => Employee::where(
+                'factory_id',
+                $factoryId
+            )->count(),
 
-            "total_varieties"=>$varieties->count(),
-
-
-            "machines_count"=>
-            Machine::where('factory_id',$factoryId)->count(),
-
-
-            "employees_count"=>
-            Employee::where('factory_id',$factoryId)->count(),
-
-
-            "varieties"=>$varieties
+            "varieties" => $varieties
 
         ]);
-
     }
 
-
-
-
+    // ==========================
     // MACHINES
-
+    // ==========================
     public function machines($managerId)
     {
+        $factoryId = Production::where('manager_id', $managerId)
+            ->value('factory_id');
 
+        if (!$factoryId) {
+            return response()->json([
+                "message" => "No factory assigned"
+            ], 404);
+        }
 
-        $factoryId = Production::where('manager_id',$managerId)
-        ->value('factory_id');
-
-
-        $machines =
-        Machine::where('factory_id',$factoryId)
-        ->get();
-
+        $machines = Machine::where('factory_id', $factoryId)
+            ->get();
 
         return response()->json([
-
-            "status"=>true,
-
-            "machines"=>$machines
-
+            "status" => true,
+            "machines" => $machines
         ]);
-
     }
 
-
-
-
-
-
+    // ==========================
     // EMPLOYEES
-
+    // ==========================
     public function employees($managerId)
     {
+        $factoryId = Production::where('manager_id', $managerId)
+            ->value('factory_id');
 
+        if (!$factoryId) {
+            return response()->json([
+                "message" => "No factory assigned"
+            ], 404);
+        }
 
-        $factoryId = Production::where('manager_id',$managerId)
-        ->value('factory_id');
-
-
-
-        $employees =
-        Employee::where('factory_id',$factoryId)
-        ->get();
-
-
+        $employees = Employee::where('factory_id', $factoryId)
+            ->get();
 
         return response()->json([
-
-            "status"=>true,
-
-            "employees"=>$employees
-
+            "status" => true,
+            "employees" => $employees
         ]);
-
     }
-
-
-
-
 }
