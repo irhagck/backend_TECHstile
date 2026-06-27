@@ -19,28 +19,28 @@ class EmployeeController extends Controller
     /**
      * Store employee shift assignment
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'factory_id' => 'required|exists:factories,id',
-            'user_id' => 'required|exists:users,id',
-            'shift_starttime' => 'required',
-            'shift_endtime' => 'required',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'factory_id' => 'required|exists:factories,id',
+        'user_id' => 'required|exists:users,id',
+        'shift_starttime' => 'required',
+        'shift_endtime' => 'required',
+    ]);
 
-        $employee = Employee::create([
-            'factory_id' => $request->factory_id,
-            'user_id' => $request->user_id,
-            'shift_starttime' => $request->shift_starttime,
-            'shift_endtime' => $request->shift_endtime,
-            'timestamp' => now(),
-        ]);
+    $employee = Employee::create([
+        'factory_id' => $request->factory_id,
+        'user_id' => $request->user_id,
+        'shift_starttime' => $request->shift_starttime,
+        'shift_endtime' => $request->shift_endtime,
+        'timestamp' => now(),
+    ]);
 
-        return response()->json([
-            'message' => 'Employee shift assigned successfully',
-            'data' => $employee
-        ]);
-    }
+    return response()->json([
+        'message' => 'Employee shift assigned successfully',
+        'data' => $employee
+    ], 201); 
+}
 
     /**
      * Get employees by factory (🔥 MAIN API YOU NEED)

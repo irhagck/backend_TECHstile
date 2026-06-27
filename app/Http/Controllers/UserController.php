@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -20,14 +21,18 @@ class UserController extends Controller
 
 public function employees()
 {
-    $users = User::role('employee')->get();
+    // Sirf wohe users jo employees table mein bhi hain
+    $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
+
+    $users = User::role('employee')
+                 ->whereIn('id', $employeeUserIds)
+                 ->get();
 
     return response()->json([
         'success' => true,
         'data' => $users
     ]);
 }
-
     // ✅ 1. Show All Users
    public function index()
 {
@@ -160,4 +165,19 @@ public function update(Request $request, $id)
             'message' => 'User deleted successfully'
         ], 200);
     }
+    public function employeesInTable()
+{
+    // Sirf wohe users jo employees table mein bhi hain
+    $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
+
+    $users = User::role('employee')
+                 ->whereIn('id', $employeeUserIds)
+                 ->select('id', 'name', 'phone_no', 'email')
+                 ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $users
+    ]);
+}
 }

@@ -7,6 +7,7 @@ use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Machine;
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ManagerController extends Controller
@@ -102,25 +103,28 @@ class ManagerController extends Controller
     // ==========================
     // EMPLOYEES
     // ==========================
-    public function employees($managerId)
-    {
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+   public function employees($managerId)
+{
+    $factoryId = Production::where('manager_id', $managerId)
+        ->value('factory_id');
 
-        if (!$factoryId) {
-            return response()->json([
-                "message" => "No factory assigned"
-            ], 404);
-        }
-
-        $employees = Employee::where('factory_id', $factoryId)
-            ->get();
-
+    if (!$factoryId) {
         return response()->json([
-            "status" => true,
-            "employees" => $employees
-        ]);
+            "message" => "No factory assigned"
+        ], 404);
     }
+
+
+    $employees = Employee::with('user')
+        ->where('factory_id', $factoryId)
+        ->get();
+
+
+    return response()->json([
+        "status" => true,
+        "employees" => $employees
+    ]);
+}
     // manager side employee details 
     public function employeeDetails($employeeId)
 {

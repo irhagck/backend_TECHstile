@@ -16,8 +16,8 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ManagerController;
 use App\Http\Controllers\Api\MachineAssignmentController;
+use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
-
 /*
 |--------------------------------------------------------------------------
 | PUBLIC ROUTES
@@ -29,6 +29,25 @@ Route::get(
     '/employee/profile/{id}',
     [EmployeeDashController::class, 'profile']
 );
+
+/*
+|--------------------------------------------------------------------------
+| FACTORY USERS + EMPLOYEES BY FACTORY
+| Yeh block apni routes/api.php mein auth:sanctum group ke ANDAR paste karo
+|--------------------------------------------------------------------------
+*/
+
+
+
+// Manager + factory ke saare users
+Route::get('/factory-users/{factoryId}',
+    [FactoryUsersController::class, 'getUsersByFactory']);
+
+// Sirf employees — Assign Shift dropdown ke liye
+Route::get('/employees-by-factory/{factoryId}',
+    [FactoryUsersController::class, 'getEmployeesByFactory']);
+
+ 
  /*
 |--------------------------------------------------------------------------
 | MANAGER ROUTES 
@@ -67,6 +86,24 @@ Route::get(
     [ManagerController::class, 'employeeDetails']
 );
 
+
+ // ── Manager Productions ────────────────────────────────
+    // Fetch all productions for a factory (filter by factory_id)
+    Route::get('/manager/productions/{factoryId}',
+        [ApproveProductionController::class, 'managerProductions']);
+ 
+    // Manager approve or reject
+    Route::post('/manager/productions/{id}/action',
+        [ApproveProductionController::class, 'managerAction']);
+ 
+    // ── Owner Productions ──────────────────────────────────
+    // Fetch all productions for a factory
+    Route::get('/owner/productions/{factoryId}',
+        [ApproveProductionController::class, 'ownerProductions']);
+ 
+    // Owner approve or reject
+    Route::post('/owner/productions/{id}/action',
+        [ApproveProductionController::class, 'ownerAction']);
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATED ROUTES
@@ -76,7 +113,7 @@ Route::get(
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
-    Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
+    // Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
 
     // Route::get('/profile', [AuthController::class, 'profile']);
 
@@ -180,7 +217,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('employees')->group(function () {
          Route::get('/employees/factory/{factoryId}',[EmployeeController::class, 'byFactory']);
         Route::get('/all_employee',          [EmployeeController::class, 'index'])->middleware('permission:view employees');
-        Route::post('/add_employee',         [EmployeeController::class, 'store'])->middleware('permission:create employees');
+        Route::post('/add_employee',         [EmployeeController::class, 'store']);
+        //->middleware('permission:create employees');
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');
         Route::put('/update_employee/{id}',  [EmployeeController::class, 'update'])->middleware('permission:edit employees');
         Route::delete('/delete_employee/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:delete employees');
