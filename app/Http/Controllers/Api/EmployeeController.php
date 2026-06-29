@@ -33,6 +33,26 @@ class EmployeeController extends Controller
             ->get();
     }
 
+    public function employeesWithShiftByFactory($factoryId)
+    {
+        $employees = \App\Models\Employee::with('user')
+            ->where('factory_id', $factoryId)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $employees->map(function ($e) {
+                return [
+                    'id' => $e->id,               // ✅ Employee table ki ID
+                    'user_id' => $e->user_id,     // Optional, agar kabhi zarurat ho
+                    'name' => $e->user->name ?? 'Unknown',
+                    'shift_starttime' => $e->shift_starttime,
+                    'shift_endtime' => $e->shift_endtime,
+                ];
+            })
+        ]);
+    }
+
 
    public function store(Request $request)
     {

@@ -118,6 +118,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/employees/users',[EmployeeController::class,'users']);
 
+    Route::get('/employees-with-shift/{factoryId}',
+    [EmployeeController::class, 'employeesWithShiftByFactory']
+);
     /*
     |---------------------------
     | EMPLOYEE DASHBOARD

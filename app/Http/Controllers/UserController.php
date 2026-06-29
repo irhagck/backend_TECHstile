@@ -54,7 +54,7 @@ public function employees()
          'phone_no'          => 'required|string|max:20',
          'cnic'              => 'required|string|max:20|unique:users,cnic',
          'address'           => 'nullable|string',
-         'pic'               => 'nullable|string',
+        //  'pic'               => 'nullable|string',
          'role'              => 'required|string',
          'employee_details'  => 'nullable|string',
         ]);
@@ -66,7 +66,7 @@ public function employees()
          'phone_no'          => $request->phone_no,
          'cnic'              => $request->cnic,
          'address'           => $request->address,
-         'pic'               => $request->pic,
+        //  'pic'               => $request->pic,
          'role'              => $request->role,
          'employee_details'  => $request->employee_details,
         ]);
@@ -116,7 +116,7 @@ public function update(Request $request, $id)
         'phone_no'         => 'sometimes|string|max:20',
         'cnic'             => 'sometimes|string|max:20|unique:users,cnic,' . $id,
         'address'          => 'nullable|string',
-        'pic'              => 'nullable|string',
+        // 'pic'              => 'nullable|string',
         'role'             => 'sometimes|string|exists:roles,name', // ✅ validate
         'employee_details' => 'nullable|string',
     ]);
@@ -126,7 +126,7 @@ public function update(Request $request, $id)
     $user->phone_no         = $request->phone_no         ?? $user->phone_no;
     $user->cnic             = $request->cnic             ?? $user->cnic;
     $user->address          = $request->address          ?? $user->address;
-    $user->pic              = $request->pic              ?? $user->pic;
+    // $user->pic              = $request->pic              ?? $user->pic;
     $user->employee_details = $request->employee_details ?? $user->employee_details;
     // ✅ Spatie se role assign karo
     if ($request->filled('role')) {
