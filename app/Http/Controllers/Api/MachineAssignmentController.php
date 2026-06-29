@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Production;
-use App\Models\User;        // ← ye add karo upar
+use App\Models\User;
+use App\Models\Employee;       // ← ye add karo upar
 
 class MachineAssignmentController extends Controller
 {
@@ -30,16 +31,25 @@ class MachineAssignmentController extends Controller
     {
         $request->validate([
             'manager_id'   => 'required|integer',
-            'user_id'      => 'required|integer',
+            'employee_id' => 'required|integer',
             'factory_id'   => 'required|integer',
             'machine_ids'  => 'required|array',
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
         ]);
 
+        $employee = Employee::find($request->employee_id);
+
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee not found'
+            ], 404);
+        }
+
         foreach ($request->machine_ids as $machineId) {
 
-            $exists = Production::where('employee_id', $request->user_id)
+            $exists = Production::where('employee_id', $employee->id)
                 ->where('machine_id', $machineId)
                 ->whereNull('shift_end')
                 ->exists();
@@ -47,15 +57,18 @@ class MachineAssignmentController extends Controller
             if ($exists) continue;
 
             Production::create([
-                'manager_id'       => $request->manager_id,
-                'employee_id'      => $request->user_id,
-                'factory_id'       => $request->factory_id,
-                'machine_id'       => $machineId,
-                'variety_type'     => $request->variety_type,
-                'total_length'     => $request->total_length,
+                'manager_id' => $request->manager_id,
+                'employee_id' => $employee->id,   // ✅ employee table ki id
+                'factory_id' => $request->factory_id,
+                'machine_id' => $machineId,
+                'variety_type' => $request->variety_type,
+                'total_length' => $request->total_length,
                 'ready_production' => 0,
-                'shift_start'      => now(),
-                'shift_end'        => null,
+
+                'shift_start' => $employee->shift_starttime,
+                'shift_end'   => $employee->shift_endtime,
+
+                'remaining' => $request->total_length,
             ]);
         }
 
