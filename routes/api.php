@@ -113,9 +113,10 @@ Route::get(
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
-    // Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
 
-    // Route::get('/profile', [AuthController::class, 'profile']);
+    Route::get('/employees/factories',[EmployeeController::class,'factories']);
+
+    Route::get('/employees/users',[EmployeeController::class,'users']);
 
     /*
     |---------------------------
@@ -125,7 +126,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
     Route::get('/user/profile/{id}',[EmployeeDashController::class,'userProfile']);
-
+ 
     /*
     |---------------------------
     | ROLES (OWNER ONLY)

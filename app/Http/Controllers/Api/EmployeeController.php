@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
+use App\Models\Factory;
+use App\Models\User;
+
 
 class EmployeeController extends Controller
 {
@@ -16,32 +19,47 @@ class EmployeeController extends Controller
         return Employee::with('user')->get();
     }
 
-    /**
-     * Store employee shift assignment
-     */
+    public function factories()
+    {
+        return Factory::select('id','name')->get();
+    }
+
+
+    public function users()
+    {
+        return User::role('employee')
+            ->select('id','name','email')
+            ->orderBy('name')
+            ->get();
+    }
+
+
    public function store(Request $request)
-{
-    $request->validate([
-        'factory_id' => 'required|exists:factories,id',
-        'user_id' => 'required|exists:users,id',
-        'shift_starttime' => 'required',
-        'shift_endtime' => 'required',
-    ]);
+    {
+        $request->validate([
+            'factory_id' => 'required|exists:factories,id',
+            'user_id' => 'required|exists:users,id',
+            'shift_starttime' => 'required',
+            'shift_endtime' => 'required',
+        ]);
 
-    $employee = Employee::create([
-        'factory_id' => $request->factory_id,
-        'user_id' => $request->user_id,
-        'shift_starttime' => $request->shift_starttime,
-        'shift_endtime' => $request->shift_endtime,
-        'timestamp' => now(),
-    ]);
+        // ✅ pehle purana record delete karo (same user ka)
+        Employee::where('user_id', $request->user_id)->delete();
 
-    return response()->json([
-        'message' => 'Employee shift assigned successfully',
-        'data' => $employee
-    ], 201); 
-}
+        // ✅ phir naya record insert karo
+        $employee = Employee::create([
+            'factory_id' => $request->factory_id,
+            'user_id' => $request->user_id,
+            'shift_starttime' => $request->shift_starttime,
+            'shift_endtime' => $request->shift_endtime,
+            'timestamp' => now(),
+        ]);
 
+        return response()->json([
+            'message' => 'Employee shift assigned successfully',
+            'data' => $employee
+        ], 201);
+    }
     /**
      * Get employees by factory (🔥 MAIN API YOU NEED)
      */
@@ -60,6 +78,8 @@ class EmployeeController extends Controller
         $employee = Employee::findOrFail($id);
 
         $employee->update([
+            'factory_id' => $request->factory_id,
+            'user_id' => $request->user_id,
             'shift_starttime' => $request->shift_starttime,
             'shift_endtime' => $request->shift_endtime,
         ]);
