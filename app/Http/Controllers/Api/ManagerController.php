@@ -7,7 +7,6 @@ use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Machine;
 use App\Models\Employee;
-use App\Models\User;
 use Illuminate\Http\Request;
 
 class ManagerController extends Controller
@@ -15,24 +14,20 @@ class ManagerController extends Controller
     // ==========================
     // DASHBOARD
     // ==========================
-    public function dashboard($managerId)
+    public function dashboard($factoryId)
     {
-        // Manager ki assigned factory
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+        $factory = Factory::find($factoryId);
 
-        if (!$factoryId) {
+        if (!$factory) {
             return response()->json([
-                "message" => "No factory assigned"
+                "message" => "Factory not found"
             ], 404);
         }
 
-        $factory = Factory::find($factoryId);
-
-        // Sirf isi manager aur isi factory ki productions
-        $productions = Production::where('manager_id', $managerId)
-            ->where('factory_id', $factoryId)
-            ->get();
+        $productions = Production::where(
+            'factory_id',
+            $factoryId
+        )->get();
 
         $varieties = $productions
             ->groupBy('variety_type')
@@ -80,19 +75,20 @@ class ManagerController extends Controller
     // ==========================
     // MACHINES
     // ==========================
-    public function machines($managerId)
+    public function machines($factoryId)
     {
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+        $factory = Factory::find($factoryId);
 
-        if (!$factoryId) {
+        if (!$factory) {
             return response()->json([
-                "message" => "No factory assigned"
+                "message" => "Factory not found"
             ], 404);
         }
 
-        $machines = Machine::where('factory_id', $factoryId)
-            ->get();
+        $machines = Machine::where(
+            'factory_id',
+            $factoryId
+        )->get();
 
         return response()->json([
             "status" => true,
@@ -103,69 +99,69 @@ class ManagerController extends Controller
     // ==========================
     // EMPLOYEES
     // ==========================
-   public function employees($managerId)
-{
-    $factoryId = Production::where('manager_id', $managerId)
-        ->value('factory_id');
+    public function employees($factoryId)
+    {
+        $factory = Factory::find($factoryId);
 
-    if (!$factoryId) {
+        if (!$factory) {
+            return response()->json([
+                "message" => "Factory not found"
+            ], 404);
+        }
+
+        $employees = Employee::with('user')
+            ->where('factory_id', $factoryId)
+            ->get();
+
         return response()->json([
-            "message" => "No factory assigned"
-        ], 404);
+            "status" => true,
+            "employees" => $employees
+        ]);
     }
 
-
-    $employees = Employee::with('user')
-        ->where('factory_id', $factoryId)
-        ->get();
-
-
-    return response()->json([
-        "status" => true,
-        "employees" => $employees
-    ]);
-}
-    // manager side employee details 
+    // ==========================
+    // EMPLOYEE DETAILS
+    // ==========================
     public function employeeDetails($employeeId)
-{
-    $employee = Employee::with('user')
-        ->find($employeeId);
+    {
+        $employee = Employee::with('user')
+            ->find($employeeId);
 
-    if (!$employee) {
+        if (!$employee) {
+            return response()->json([
+                'message' => 'Employee not found'
+            ], 404);
+        }
+
+        $productions = Production::where(
+            'employee_id',
+            $employee->id
+        )->get();
+
         return response()->json([
-            'message' => 'Employee not found'
-        ], 404);
+
+            'employee_id' => $employee->id,
+
+            'name' => $employee->user?->name,
+
+            'email' => $employee->user?->email,
+
+            'shift_start' => $employee->shift_starttime,
+
+            'shift_end' => $employee->shift_endtime,
+
+            'total_production' => $productions->sum('ready_production'),
+
+            'total_waste' => $productions->sum('waste_production'),
+
+            'machines_worked' => $productions
+                ->pluck('machine_id')
+                ->unique()
+                ->count(),
+
+            'total_entries' => $productions->count(),
+
+            'created_at' => $employee->created_at,
+        ]);
     }
-
-    $productions = Production::where(
-        'employee_id',
-        $employee->id
-    )->get();
-
-    return response()->json([
-
-        'employee_id' => $employee->id,
-
-        'name' => $employee->user?->name,
-
-        'email' => $employee->user?->email,
-
-        'shift_start' => $employee->shift_starttime,
-
-        'shift_end' => $employee->shift_endtime,
-
-        'total_production' => $productions->sum('ready_production'),
-
-        'total_waste' => $productions->sum('waste_production'),
-
-        'machines_worked' => $productions
-            ->pluck('machine_id')
-            ->unique()
-            ->count(),
-
-        'total_entries' => $productions->count(),
-
-        'created_at' => $employee->created_at,
-    ]);
-}
 }

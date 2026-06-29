@@ -55,32 +55,24 @@ Route::get('/employees-by-factory/{factoryId}',
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('manager')->group(function(){
+Route::prefix('manager')->group(function () {
 
+    Route::get(
+        'dashboard/{factoryId}',
+        [ManagerController::class, 'dashboard']
+    );
 
-Route::get(
-'dashboard/{managerId}',
-[ManagerController::class,'dashboard']
-);
+    Route::get(
+        'machines/{factoryId}',
+        [ManagerController::class, 'machines']
+    );
 
+    Route::get(
+        'employees/{factoryId}',
+        [ManagerController::class, 'employees']
+    );
 
-
-Route::get(
-'machines/{managerId}',
-[ManagerController::class,'machines']
-);
-
-
-
-Route::get(
-'employees/{managerId}',
-[ManagerController::class,'employees']
-);
-
-
-
-});
-//manager side employees details
+});//manager side employees details
 Route::get(
     '/manager/employee-details/{employeeId}',
     [ManagerController::class, 'employeeDetails']
