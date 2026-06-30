@@ -13,15 +13,15 @@ class FactoryUsersController extends Controller
     // Manager + saare users jo isi factory se related hain
     public function getUsersByFactory($factoryId)
     {
-        // Manager dhoondo — production table ke manager_id se
         $managerId = Production::where('factory_id', $factoryId)
+            ->whereNotNull('manager_id')
+            ->orderByDesc('id')
             ->value('manager_id');
 
         $manager = $managerId
             ? User::with('roles')->find($managerId)
             : null;
 
-        // Saare users jo employees table se isi factory se link hain
         $employeeUserIds = \App\Models\Employee::where('factory_id', $factoryId)
             ->pluck('user_id');
 
@@ -33,7 +33,7 @@ class FactoryUsersController extends Controller
             'manager'      => $manager,
             'data'         => $users,
             'total_users'  => $users->count(),
-            'active_users' => $users->count(), // abhi sab active treat karo
+            'active_users' => $users->count(),
         ]);
     }
 
