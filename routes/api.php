@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ManagerController;
 use App\Http\Controllers\Api\MachineAssignmentController;
 use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
+use App\Http\Controllers\Api\ManagerSettingController;
 /*
 |--------------------------------------------------------------------------
 | PUBLIC ROUTES
@@ -77,7 +78,18 @@ Route::get(
     '/manager/employee-details/{employeeId}',
     [ManagerController::class, 'employeeDetails']
 );
+//manager settings
+Route::put(
+    '/manager/profile/{id}',
+    [ManagerSettingController::class,
+    'updateProfile']
+);
 
+Route::post(
+    '/manager/change-password',
+    [ManagerSettingController::class,
+    'changePassword']
+);
 
  // ── Manager Productions ────────────────────────────────
     // Fetch all productions for a factory (filter by factory_id)
