@@ -7,6 +7,7 @@ use App\Models\Production;
 use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Models\Machine;
+use App\Models\Factory;
 class ApproveProductionController extends Controller
 {
     // =========================================================
@@ -20,31 +21,37 @@ class ApproveProductionController extends Controller
 
     // ── MANAGER: get all productions for factory ─────────────
     // GET /api/manager/productions/{factoryId}
- public function managerProductions($managerId)
+public function managerProductions($factoryId)
 {
-    $factoryId = Production::where('manager_id', $managerId)
-        ->value('factory_id');
+    // Factory exist karti hai ya nahi
+    $factory = Factory::find($factoryId);
 
-    if (!$factoryId) {
+    if (!$factory) {
         return response()->json([
-            'message' => 'No factory assigned to this manager'
+            'message' => 'Factory not found'
         ], 404);
     }
 
-    // ✅ Step 1: Sirf isi factory ke valid employee IDs nikalo
-    $validEmployeeIds = Employee::where('factory_id', $factoryId)
-        ->pluck('id');
+    // Isi factory ke employees
+    $validEmployeeIds = Employee::where(
+        'factory_id',
+        $factoryId
+    )->pluck('id');
 
-    // ✅ Step 2: Sirf isi factory ke valid machine IDs nikalo
-    $validMachineIds = Machine::where('factory_id', $factoryId)
-        ->pluck('id');
+    // Isi factory ki machines
+    $validMachineIds = Machine::where(
+        'factory_id',
+        $factoryId
+    )->pluck('id');
 
-    // ✅ Step 3: Production records — sab conditions check karo
-    $productions = Production::where('manager_id', $managerId)
-        ->where('factory_id', $factoryId)
+    // Productions
+    $productions = Production::where(
+            'factory_id',
+            $factoryId
+        )
         ->whereIn('status', [1, 2, 4])
-        ->whereIn('employee_id', $validEmployeeIds) // ✅ employee waqai isi factory ka hai
-        ->whereIn('machine_id', $validMachineIds)   // ✅ machine waqai isi factory ki hai
+        ->whereIn('employee_id', $validEmployeeIds)
+        ->whereIn('machine_id', $validMachineIds)
         ->with([
             'employeedetails.user',
             'machineemploye'
@@ -53,7 +60,7 @@ class ApproveProductionController extends Controller
         ->get();
 
     return response()->json([
-        'status'      => true,
+        'status' => true,
         'productions' => $productions
     ]);
 }
@@ -128,4 +135,6 @@ class ApproveProductionController extends Controller
             'production' => $prod,
         ]);
     }
+
+    
 }

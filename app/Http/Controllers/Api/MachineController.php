@@ -147,26 +147,39 @@ class MachineController extends Controller
 
     // same batch ready sum
 
-    $readyProduction = Production::where('machine_id',$id)
-    ->where('batch_id',$production->batch_id)
+    // Same batch ready production sum
+$readyProduction = Production::where('machine_id', $id)
+    ->where('batch_id', $production->batch_id)
     ->sum('ready_production');
 
+// Same batch waste production sum
+$wasteProduction = Production::where('machine_id', $id)
+    ->where('batch_id', $production->batch_id)
+    ->sum('waste_production');
 
-
-    $remaining = max(
-        0,
-        $production->total_length - $readyProduction
-    );
+// Remaining = Total - Ready - Waste
+$remaining = max(
+    0,
+    $production->total_length - ($readyProduction + $wasteProduction)
+);
 
 
 
     // only daily
 
-    $dailyProduction = Production::where('machine_id',$id)
-    ->whereDate(
-        'created_at',
-        Carbon::today()
-    )
+   $dailyProduction = Production::where('machine_id', $id)
+    ->whereDate('created_at', Carbon::today())
+    ->sum('ready_production');
+
+$weeklyProduction = Production::where('machine_id', $id)
+    ->whereBetween('created_at', [
+        Carbon::now()->startOfWeek(),
+        Carbon::now()->endOfWeek()
+    ])
+    ->sum('ready_production');
+
+$yearlyProduction = Production::where('machine_id', $id)
+    ->whereYear('created_at', Carbon::now()->year)
     ->sum('ready_production');
     return response()->json([
 
@@ -203,12 +216,13 @@ class MachineController extends Controller
 
 
         "ready_production"=>$readyProduction,
-
+         "waste_production" => $wasteProduction,
 
         "remaining"=>$remaining,
+        "weekly_production"  => $weeklyProduction,
+        "yearly_production" => $yearlyProduction,
 
-
-        // "daily_production"=>$dailyProduction,
+        "daily_production"=>$dailyProduction,
 
 
     ]);

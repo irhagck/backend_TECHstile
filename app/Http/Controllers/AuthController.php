@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Production;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+
 
 class AuthController extends Controller
 {
@@ -35,6 +37,15 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
         $role  = $user->roles->first()?->name;
+        $factoryId = Production::where(
+    'manager_id',
+    $user->id
+)->value('factory_id');
+
+\Log::info([
+    'manager_id' => $user->id,
+    'factory_id' => $factoryId
+]);
 
         return response()->json([
             'success' => true,
@@ -49,7 +60,8 @@ class AuthController extends Controller
                     'address'  => $user->address,
                     'pic'      => $user->pic,
                     'roles'    => $user->roles, // Flutter side roles[0]['name'] ke liye
-                    'role'     => $role,        // Direct role name bhi
+                    'role'     => $role, 
+                   'factory_id' => $factoryId,      // Direct role name bhi
                 ]
             ]
         ], 200);

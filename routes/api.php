@@ -96,6 +96,11 @@ Route::get(
     // Owner approve or reject
     Route::post('/owner/productions/{id}/action',
         [ApproveProductionController::class, 'ownerAction']);
+//manager profile
+        Route::get(
+    '/manager/profile/{userId}',
+    [ManagerController::class, 'profile']
+);
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATED ROUTES
