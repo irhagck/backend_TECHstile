@@ -16,167 +16,122 @@ class EmployeeDashController extends Controller
 // employee dashboard
  public function dashboard(Request $request, $id)
 {
-    $employee = Employee::where('user_id', $id)->first();
+    $employee = Employee::with('user')
+        ->where('user_id', $id)
+        ->first();
 
     if (!$employee) {
         return response()->json([
-            'message'=>'Employee not found'
-        ],404);
+            'message' => 'Employee not found'
+        ], 404);
     }
 
+    // Employee ki factory
+    $factoryId = $employee->factory_id;
 
-    // ✅ employee ki latest factory + manager find karo
-    $assignment = Production::where('employee_id',$employee->id)
+    // Factory ka manager
+    $managerId = Production::where('factory_id', $factoryId)
+        ->whereNotNull('manager_id')
         ->latest()
-        ->first();
+        ->value('manager_id');
 
-
-    if(!$assignment){
-
-        return response()->json([
-            'message'=>'No factory assigned'
-        ],404);
-
-    }
-
-
-    $factoryId = $assignment->factory_id;
-    $managerId = $assignment->manager_id;
-
-
-
-    // 🔥 ONLY employee + same factory + same manager + approved
+    // Employee ki approved productions
     $productions = Production::with([
         'machineemploye',
         'employeedetails.user'
     ])
+        ->where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('status', 2)
+        ->whereBetween('created_at', [
+            Carbon::now()->subDays(7),
+            Carbon::now()
+        ])
+        ->get();
 
-    ->where('employee_id', $employee->id)
-
-    // ✅ added filters
-    ->where('factory_id',$factoryId)
-    ->where('manager_id',$managerId)
-
-    ->where('status',2)
-
-    ->whereBetween('created_at',[
-        Carbon::now()->subDays(7),
-        Carbon::now()
-    ])
-
-    ->get();
-
-
-
-    $grouped = $productions->groupBy(function($item){
-
-        return 
-        $item->machine_id.'_'
-        .$item->variety_type.'_'
-        .$item->batch_id;
-
+    $grouped = $productions->groupBy(function ($item) {
+        return $item->machine_id . '_' .
+               $item->variety_type . '_' .
+               $item->batch_id;
     });
 
+    $data = $grouped->map(function ($group) use ($managerId) {
 
+        $first = $group->first();
 
-    $data = $grouped->map(function($group){
+        $readyProduction = $group->sum('ready_production');
 
-        $first=$group->first();
+        $totalLength = $first->total_length;
 
-
-        $readyProduction=$group->sum(
-            'ready_production'
-        );
-
-
-        $totalLength=$first->total_length;
-
-
-        $progress = ($totalLength > 0)
-        ?
-        round(($readyProduction/$totalLength)*100,2)
-        :
-        0;
-
+        $progress = $totalLength > 0
+            ? round(($readyProduction / $totalLength) * 100, 2)
+            : 0;
 
         return [
+            'machine_id' => $first->machine_id,
 
-            'machine_id'=>$first->machine_id,
+            'machine_type' =>
+                $first->machineemploye?->machine_type ?? '',
 
+            'machine_status' =>
+                $first->machineemploye?->status ?? '',
 
-            'machine_type'=>
-            $first->machineemploye?->machine_type ?? '',
+            'employee_name' =>
+                $first->employeedetails?->user?->name ?? '',
 
+            'variety_type' =>
+                $first->variety_type,
 
-            'machine_status'=>
-            $first->machineemploye?->status ?? '',
+            'batch_id' =>
+                $first->batch_id,
 
+            'ready_production' =>
+                $readyProduction,
 
-            'employee_name'=>
-            $first->employeedetails?->user?->name ?? '',
+            'total_length' =>
+                $totalLength,
 
+            'progress' =>
+                $progress,
 
-            'variety_type'=>
-            $first->variety_type,
+            'factory_id' =>
+                $first->factory_id,
 
+            'manager_id' =>
+                $managerId,
 
-            'batch_id'=>
-            $first->batch_id,
+            'from_date' =>
+                Carbon::now()
+                    ->subDays(7)
+                    ->format('Y-m-d'),
 
-
-            'ready_production'=>
-            $readyProduction,
-
-
-            'total_length'=>
-            $totalLength,
-
-
-            'progress'=>$progress,
-
-
-            // optional
-            'factory_id'=>$first->factory_id,
-            'manager_id'=>$first->manager_id,
-
-            'from_date'=>
-            Carbon::now()->subDays(7)->format('Y-m-d'),
-
-            'to_date'=>
-            Carbon::now()->format('Y-m-d'),
-
+            'to_date' =>
+                Carbon::now()
+                    ->format('Y-m-d'),
         ];
-
     })->values();
 
-
-
     return response()->json([
+        'employee_name' =>
+            $employee->user?->name ?? '',
 
+        'factory_id' =>
+            $factoryId,
 
-        'employee_name'=>
-        $employee->user->name ?? '',
+        'manager_id' =>
+            $managerId,
 
+        'total_machines' =>
+            $data->count(),
 
-        'factory_id'=>$factoryId,
+        'total_production' =>
+            $data->sum('total_length'),
 
-        'manager_id'=>$managerId,
+        'total_ready_production' =>
+            $data->sum('ready_production'),
 
-
-        'total_machines'=>
-        $data->count(),
-
-
-        'total_production'=>
-        $data->sum('total_length'),
-
-
-        'total_ready_production'=>
-        $data->sum('ready_production'),
-
-
-        'machines'=>$data
-
+        'machines' =>
+            $data
     ]);
 }
 //employee side machine details
@@ -366,188 +321,130 @@ public function profile(Request $request, $id)
 // employee history functions
      public function employeeHistory($id)
 {
-    $employee = Employee::where('user_id',$id)->first();
+    $employee = Employee::where('user_id', $id)->first();
 
-    if(!$employee){
+    if (!$employee) {
         return response()->json([
-            'message'=>'Employee not found'
-        ],404);
+            'message' => 'Employee not found'
+        ], 404);
     }
 
-    // ======================
-// GET CURRENT FACTORY + MANAGER
-// ======================
-
-$lastProduction = Production::where(
-    'employee_id',
-    $employee->id
-)
-->latest()
-->first();
-
-
-$factoryId = $lastProduction?->factory_id;
-$managerId = $lastProduction?->manager_id;
-
-if(!$lastProduction){
-    return response()->json([
-        'pending'=>[],
-        'completed'=>[],
-        'daily'=>0,
-        'weekly'=>0,
-        'monthly'=>0,
-    ]);
-}
-
-    // ======================
-    // PENDING
-    // ======================
-
-    $pending = Production::with([
-    'machine'
-])
-->where('employee_id',$employee->id)
-
-->where('factory_id',$factoryId)
-
-->where('manager_id',$managerId)
-
-->where('status',1)
+    // Latest assignment
+    $lastProduction = Production::where(
+        'employee_id',
+        $employee->id
+    )
     ->latest()
-    ->get();
+    ->first();
 
+    if (!$lastProduction) {
+        return response()->json([
+            'pending'   => [],
+            'completed' => [],
+            'daily'     => 0,
+            'weekly'    => 0,
+            'monthly'   => 0,
+        ]);
+    }
 
-    // ======================
-    // APPROVED
-    // ======================
+    $factoryId = $lastProduction->factory_id;
+    $managerId = $lastProduction->manager_id;
 
-   $approved = Production::with([
-    'machine'
-])
-->where('employee_id',$employee->id)
+    // =====================
+    // PENDING (Status 1)
+    // =====================
 
-->where('factory_id',$factoryId)
+    $pending = Production::with('machine')
+        ->where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('manager_id', $managerId)
+        ->where('status', 1)
+        ->latest()
+        ->get();
 
-->where('manager_id',$managerId)
+    // =====================
+    // COMPLETED (Status 4)
+    // =====================
 
-->where('status',2)
-    ->get();
-
+    $approved = Production::with('machine')
+        ->where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('manager_id', $managerId)
+        ->where('status', 4)
+        ->get();
 
     $completed = $approved
-    ->groupBy(function($item){
+        ->groupBy(function ($item) {
+            return $item->machine_id . '_'
+                . $item->variety_type . '_'
+                . $item->batch_id;
+        })
+        ->map(function ($group) {
 
-        return $item->machine_id.'_'
-        .$item->variety_type.'_'
-        .$item->batch_id;
+            $first = $group->first();
 
-    })
-    ->map(function($group){
+            return [
+                'machine_id'       => $first->machine_id,
+                'machine_type'     => $first->machine?->machine_type ?? '',
+                'variety_type'     => $first->variety_type,
+                'batch_id'         => $first->batch_id,
+                'ready_production' => $group->sum('ready_production'),
+                'total_length'     => $first->total_length,
+                'status'           => $first->status,
+            ];
+        })
+        ->values();
 
-        $first = $group->first();
+    // =====================
+    // DAILY
+    // =====================
 
+    $daily = Production::where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('manager_id', $managerId)
+        ->where('status', 4)
+        ->whereDate('created_at', today())
+        ->sum('ready_production');
 
-        return [
+    // =====================
+    // WEEKLY
+    // =====================
 
-            'machine_id'=>$first->machine_id,
+    $weekly = Production::where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('manager_id', $managerId)
+        ->where('status', 4)
+        ->whereBetween('created_at', [
+            now()->startOfWeek(),
+            now()->endOfWeek()
+        ])
+        ->sum('ready_production');
 
-            'machine_type'=>
-            $first->machine?->machine_type,
+    // =====================
+    // MONTHLY
+    // =====================
 
-
-            'variety_type'=>
-            $first->variety_type,
-
-
-            // SUM READY
-            'ready_production'=>
-            $group->sum('ready_production'),
-
-
-            // SAME TOTAL
-            'total_length'=>
-            $first->total_length,
-
-
-            'status'=>$first->status,
-
-        ];
-
-    })
-    ->values();
-
-
-
-    // ======================
-    // TOTALS
-    // ======================
-
-
-    $daily =
-   Production::where('employee_id',$employee->id)
-
-->where('factory_id',$factoryId)
-
-->where('manager_id',$managerId)
-
-->where('status',2)
-    ->whereDate(
-        'created_at',
-        today()
-    )
-    ->sum('ready_production');
-
-
-
-   $weekly =
-Production::where('employee_id',$employee->id)
-
-->where('factory_id',$factoryId)
-
-->where('manager_id',$managerId)
-
-->where('status',2)
-    ->whereBetween(
-        'created_at',
-        [
-          now()->startOfWeek(),
-          now()->endOfWeek()
-        ]
-    )
-    ->sum('ready_production');
-
-
-
-   $monthly =
-Production::where('employee_id',$employee->id)
-
-->where('factory_id',$factoryId)
-
-->where('manager_id',$managerId)
-
-->where('status',2)
-    ->whereMonth(
-        'created_at',
-        now()->month
-    )
-    ->sum('ready_production');
-
-
-
+    $monthly = Production::where('employee_id', $employee->id)
+        ->where('factory_id', $factoryId)
+        ->where('manager_id', $managerId)
+        ->where('status', 4)
+        ->whereMonth('created_at', now()->month)
+        ->whereYear('created_at', now()->year)
+        ->sum('ready_production');
 
     return response()->json([
+        'factory_id' => $factoryId,
+        'manager_id' => $managerId,
 
-        'pending'=>$pending,
+        'pending' => $pending,
 
-        'completed'=>$completed,
+        'completed' => $completed,
 
-        'daily'=>$daily,
+        'daily' => $daily,
 
-        'weekly'=>$weekly,
+        'weekly' => $weekly,
 
-        'monthly'=>$monthly,
-
+        'monthly' => $monthly,
     ]);
-
 }
 }

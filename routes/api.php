@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\MachineAssignmentController;
 use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
 use App\Http\Controllers\Api\ManagerSettingController;
+use App\Http\Controllers\Api\NotificationController;
+
 /*
 |--------------------------------------------------------------------------
 | PUBLIC ROUTES
@@ -26,93 +28,44 @@ use App\Http\Controllers\Api\ManagerSettingController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::get(
-    '/employee/profile/{id}',
-    [EmployeeDashController::class, 'profile']
-);
+Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
 
 /*
 |--------------------------------------------------------------------------
 | FACTORY USERS + EMPLOYEES BY FACTORY
-| Yeh block apni routes/api.php mein auth:sanctum group ke ANDAR paste karo
 |--------------------------------------------------------------------------
 */
 
+Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
+Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
 
-
-// Manager + factory ke saare users
-Route::get('/factory-users/{factoryId}',
-    [FactoryUsersController::class, 'getUsersByFactory']);
-
-// Sirf employees — Assign Shift dropdown ke liye
-Route::get('/employees-by-factory/{factoryId}',
-    [FactoryUsersController::class, 'getEmployeesByFactory']);
-
- 
- /*
+/*
 |--------------------------------------------------------------------------
-| MANAGER ROUTES 
-| 
+| MANAGER ROUTES (public — abhi bina auth ke)
 |--------------------------------------------------------------------------
 */
 
 Route::prefix('manager')->group(function () {
+    Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
+    Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
+    Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
+});
 
-    Route::get(
-        'dashboard/{factoryId}',
-        [ManagerController::class, 'dashboard']
-    );
+Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
 
-    Route::get(
-        'machines/{factoryId}',
-        [ManagerController::class, 'machines']
-    );
+Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
+Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
+Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
 
-    Route::get(
-        'employees/{factoryId}',
-        [ManagerController::class, 'employees']
-    );
-
-});//manager side employees details
+// NOTIFICATION
+Route::get('notifications/{user}', [NotificationController::class, 'index']);
+Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
+Route::post('notifications/create', [NotificationController::class, 'store']);
 Route::get(
-    '/manager/employee-details/{employeeId}',
-    [ManagerController::class, 'employeeDetails']
-);
-//manager settings
-Route::put(
-    '/manager/profile/{id}',
-    [ManagerSettingController::class,
-    'updateProfile']
+'/notifications/unread/{userId}',
+[NotificationController::class,'unreadCount']
 );
 
-Route::post(
-    '/manager/change-password',
-    [ManagerSettingController::class,
-    'changePassword']
-);
-
- // ── Manager Productions ────────────────────────────────
-    // Fetch all productions for a factory (filter by factory_id)
-    Route::get('/manager/productions/{factoryId}',
-        [ApproveProductionController::class, 'managerProductions']);
- 
-    // Manager approve or reject
-    Route::post('/manager/productions/{id}/action',
-        [ApproveProductionController::class, 'managerAction']);
- 
-    // ── Owner Productions ──────────────────────────────────
-    // Fetch all productions for a factory
-    Route::get('/owner/productions/{factoryId}',
-        [ApproveProductionController::class, 'ownerProductions']);
- 
-    // Owner approve or reject
-    Route::post('/owner/productions/{id}/action',
-        [ApproveProductionController::class, 'ownerAction']);
-//manager profile
-        Route::get(
-    '/manager/profile/{userId}',
-    [ManagerController::class, 'profile']
-);
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATED ROUTES
@@ -123,13 +76,24 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
 
+    // ── Manager Productions ────────────────────────────────
+    Route::get('/manager/productions/{factoryId}',
+        [ApproveProductionController::class, 'managerProductions']);
+
+    Route::post('/manager/productions/{id}/action',
+        [ApproveProductionController::class, 'managerAction']);
+
+    // ── Owner Productions ──────────────────────────────────
+    Route::get('/owner/productions/{factoryId}',
+        [ApproveProductionController::class, 'ownerProductions']);
+
+    Route::post('/owner/productions/{id}/action',
+        [ApproveProductionController::class, 'ownerAction']);
+
     Route::get('/employees/factories',[EmployeeController::class,'factories']);
-
     Route::get('/employees/users',[EmployeeController::class,'users']);
+    Route::get('/employees-with-shift/{factoryId}', [EmployeeController::class, 'employeesWithShiftByFactory']);
 
-    Route::get('/employees-with-shift/{factoryId}',
-    [EmployeeController::class, 'employeesWithShiftByFactory']
-);
     /*
     |---------------------------
     | EMPLOYEE DASHBOARD
@@ -257,7 +221,7 @@ Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'ma
 
 Route::prefix('productions')->group(function () {
 // Production enter karna
-//Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
+Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
 
   Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');

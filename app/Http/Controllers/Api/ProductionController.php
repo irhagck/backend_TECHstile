@@ -20,39 +20,45 @@ class ProductionController extends Controller
         return response()->json($productions, 200);
     }
 
-    // 2. Add production
-    public function store(Request $request)
-    {
-        \Log::info('STORE HIT');
+    // 2. Add production employee
+   public function store(Request $request)
+{
+    \Log::info('STORE HIT');
 
-        $request->validate([
-            'machine_id' => 'required|integer',
-            'employee_id' => 'required|integer',
-            'factory_id' => 'required|integer',
-            'variety_type' => 'required|string',
-            'total_length' => 'required|numeric',
-            'ready_production' => 'required|numeric',
-            'waste_production' => 'required|numeric',
-        ]);
+    $request->validate([
+        'machine_id' => 'required|integer',
+        'user_id' => 'required|integer', // frontend se AuthService.userId aayega
+        'factory_id' => 'required|integer',
+        'variety_type' => 'required|string',
+        'total_length' => 'required|numeric',
+        'ready_production' => 'required|numeric',
+        'waste_production' => 'required|numeric',
+    ]);
 
-        $factory = Factory::find($request->factory_id);
-        if (!$factory) {
-            return response()->json(['message' => 'Factory not found'], 404);
-        }
+    $factory = Factory::find($request->factory_id);
+    if (!$factory) {
+        return response()->json(['message' => 'Factory not found'], 404);
+    }
 
-        // employees table ID
-        $employee = Employee::find($request->employee_id);
-        if (!$employee) {
-            return response()->json(['message' => 'Employee not found'], 404);
-        }
+    // ✅ user_id se employees table ka record dhoondo
+    $employee = Employee::where('user_id', $request->user_id)
+        ->where('factory_id', $request->factory_id)
+        ->first();
 
-        $lastProduction = Production::where('machine_id', $request->machine_id)
-            ->whereNotNull('batch_id')
-            ->latest()
-            ->first();
+    if (!$employee) {
+        return response()->json(['message' => 'Employee not found for this user/factory'], 404);
+    }
+       $lastProduction = Production::where('machine_id', $request->machine_id)
+    ->latest()
+    ->first();
 
-        $batchId = $lastProduction?->batch_id;
-        $managerId = $lastProduction?->manager_id;
+$batchId = $lastProduction?->batch_id;
+
+// ✅ manager_id ab poori factory se dhoondo 
+$managerId = Production::where('factory_id', $request->factory_id)
+    ->whereNotNull('manager_id')
+    ->latest()
+    ->value('manager_id');
 
         $previousRemaining = $lastProduction?->remaining ?? $request->total_length;
 
@@ -139,37 +145,6 @@ class ProductionController extends Controller
         return response()->json([
             'message' => 'Production deleted successfully'
         ]);
-    }
-
-    // 6. Pending
-    public function pending()
-    {
-        $productions = Production::with(['machine', 'employee.user'])
-            ->where('status', 1)
-            ->latest()
-            ->get();
-
-        return response()->json($productions, 200);
-    }
-
-    // 7. Approve
-    public function approve($id)
-    {
-        $production = Production::findOrFail($id);
-        $production->status = 2;
-        $production->save();
-
-        return response()->json(['message' => 'Production Approved']);
-    }
-
-    // 8. Reject
-    public function reject($id)
-    {
-        $production = Production::findOrFail($id);
-        $production->status = 3;
-        $production->save();
-
-        return response()->json(['message' => 'Production Rejected']);
     }
 
     // 9. Assign production (FIXED)

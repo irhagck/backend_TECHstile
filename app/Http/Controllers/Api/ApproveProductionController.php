@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Models\Machine;
 use App\Models\Factory;
+use App\Models\Notification;
 class ApproveProductionController extends Controller
 {
     // =========================================================
@@ -68,29 +69,42 @@ public function managerProductions($factoryId)
     // POST /api/manager/productions/{id}/action
     // body: { "action": "approve" | "reject" }
     public function managerAction(Request $request, $id)
-    {
-        $request->validate(['action' => 'required|in:approve,reject']);
+{
+    $request->validate(['action' => 'required|in:approve,reject']);
 
-        $prod = Production::findOrFail($id);
+    $prod = Production::with('employeedetails.user')->findOrFail($id);
 
-        // If owner already approved (status 4), manager can still approve
-        // it just stays at 4 (owner approval is higher priority)
-        if ($prod->status == 4) {
-            return response()->json([
-                'message' => 'Owner has already approved this production',
-                'production' => $prod,
-            ]);
-        }
-
-        $prod->status = $request->action === 'approve' ? 2 : 3;
-        $prod->save();
-
+    if ($prod->status == 4) {
         return response()->json([
-            'message' => $request->action === 'approve' ? 'Approved' : 'Rejected',
+            'message' => 'Owner has already approved this production',
             'production' => $prod,
         ]);
     }
 
+    $prod->status = $request->action === 'approve' ? 2 : 3;
+    $prod->save();
+
+    // ── notification employee ko bhejo ──
+    $employeeUserId = $prod->employeedetails->user->id ?? null;
+
+    if ($employeeUserId) {
+        Notification::create([
+            'user_id'        => $employeeUserId,
+            'production_id'  => $prod->id,
+            'sender_id'      => $request->user()->id, // manager ka id (auth se)
+            'title'          => $request->action === 'approve' ? 'Production Approved' : 'Production Rejected',
+            'message'        => $request->action === 'approve'
+                ? 'Your production has been approved by manager'
+                : 'Your production has been rejected by manager',
+            'type'           => $request->action === 'approve' ? 'approved' : 'rejected',
+        ]);
+    }
+
+    return response()->json([
+        'message' => $request->action === 'approve' ? 'Approved' : 'Rejected',
+        'production' => $prod,
+    ]);
+}
     // ── OWNER: get all productions for factory ────────────────
     // GET /api/owner/productions/{factoryId}
   public function ownerProductions($factoryId)
@@ -122,19 +136,39 @@ public function managerProductions($factoryId)
     // ── OWNER: approve or reject ──────────────────────────────
     // POST /api/owner/productions/{id}/action
     // body: { "action": "approve" | "reject" }
-    public function ownerAction(Request $request, $id)
-    {
-        $request->validate(['action' => 'required|in:approve,reject']);
+   public function ownerAction(Request $request, $id)
+{
+    $request->validate(['action' => 'required|in:approve,reject']);
 
-        $prod = Production::findOrFail($id);
-        $prod->status = $request->action === 'approve' ? 4 : 5;
-        $prod->save();
+    $prod = Production::with('employeedetails.user')->findOrFail($id);
 
-        return response()->json([
-            'message' => $request->action === 'approve' ? 'Owner Approved' : 'Owner Rejected',
-            'production' => $prod,
-        ]);
+    $prod->status = $request->action === 'approve' ? 4 : 5;
+    $prod->save();
+
+    // ── notification (wrapped, production approval isse affect nahi hoga) ──
+    try {
+        $employeeUserId = $prod->employeedetails->user->id ?? null;
+
+        if ($employeeUserId) {
+            Notification::create([
+                'user_id'        => $employeeUserId,
+                'production_id'  => $prod->id,
+                'sender_id'      => $request->user()->id,
+                'title'          => $request->action === 'approve' ? 'Production Approved' : 'Production Rejected',
+                'message'        => $request->action === 'approve'
+                    ? 'Your production has been approved by owner'
+                    : 'Your production has been rejected by owner',
+                'type'           => $request->action === 'approve' ? 'approved' : 'rejected',
+            ]);
+        }
+    } catch (\Exception $e) {
+        \Log::error('Notification create failed: ' . $e->getMessage());
     }
 
+    return response()->json([
+        'message' => $request->action === 'approve' ? 'Owner Approved' : 'Owner Rejected',
+        'production' => $prod,
+    ]);
+}
     
 }
