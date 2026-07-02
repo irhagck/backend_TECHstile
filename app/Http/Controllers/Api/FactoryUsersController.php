@@ -3,40 +3,60 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Production;
 use App\Models\User;
+use App\Models\Production;
+use Illuminate\Http\Request;
 
 class FactoryUsersController extends Controller
 {
-    public function usersByFactory($factoryId)
+    // ✅ GET /api/factory-users/{factoryId}
+    // Manager + saare users jo isi factory se related hain
+    public function getUsersByFactory($factoryId)
     {
-        //  Get Manager (latest assigned)
         $managerId = Production::where('factory_id', $factoryId)
             ->whereNotNull('manager_id')
-            ->latest()
+            ->orderByDesc('id')
             ->value('manager_id');
 
         $manager = $managerId
             ? User::with('roles')->find($managerId)
             : null;
 
-        //  Get Employees
-        $employeeIds = Production::where('factory_id', $factoryId)
-            ->pluck('employee_id')
-            ->unique();
+        $employeeUserIds = \App\Models\Employee::where('factory_id', $factoryId)
+            ->pluck('user_id');
 
         $users = User::with('roles')
-            ->whereIn('id', $employeeIds)
+            ->whereIn('id', $employeeUserIds)
             ->get();
 
         return response()->json([
-            'success' => true,
-
-            // stats
-            'total_users' => $users->count(),
+            'manager'      => $manager,
+            'data'         => $users,
+            'total_users'  => $users->count(),
             'active_users' => $users->count(),
-            'manager' => $manager,
-            'data' => $users,
+        ]);
+    }
+
+    // ✅ GET /api/employees-by-factory/{factoryId}
+    // Sirf isi factory ke employees — dropdown ke liye (name + id)
+    public function getEmployeesByFactory($factoryId)
+    {
+        $employees = \App\Models\Employee::with('user')
+            ->where('factory_id', $factoryId)
+            ->get()
+           ->map(function ($emp) {
+    return [
+        'id'              => $emp->id,
+        'user_id'         => $emp->user_id,  // ← ye line hai ya nahi?
+        'name'            => $emp->user?->name ?? 'Employee #' . $emp->id,
+        'shift_starttime' => $emp->shift_starttime,
+        'shift_endtime'   => $emp->shift_endtime,
+    ];
+});
+
+        return response()->json([
+            'status' => true,
+            'data'   => $employees,
         ]);
     }
 }

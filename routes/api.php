@@ -16,7 +16,10 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ManagerController;
 use App\Http\Controllers\Api\MachineAssignmentController;
+use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
+use App\Http\Controllers\Api\ManagerSettingController;
+use App\Http\Controllers\Api\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,46 +28,42 @@ use App\Http\Controllers\Api\FactoryUsersController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::get(
-    '/employee/profile/{id}',
-    [EmployeeDashController::class, 'profile']
-);
- /*
+Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
+
+/*
 |--------------------------------------------------------------------------
-| MANAGER ROUTES 
-| 
+| FACTORY USERS + EMPLOYEES BY FACTORY
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('manager')->group(function(){
+Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
+Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
 
+/*
+|--------------------------------------------------------------------------
+| MANAGER ROUTES (public — abhi bina auth ke)
+|--------------------------------------------------------------------------
+*/
 
-Route::get(
-'dashboard/{managerId}',
-[ManagerController::class,'dashboard']
-);
-
-
-
-Route::get(
-'machines/{managerId}',
-[ManagerController::class,'machines']
-);
-
-
-
-Route::get(
-'employees/{managerId}',
-[ManagerController::class,'employees']
-);
-
-
-
+Route::prefix('manager')->group(function () {
+    Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
+    Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
+    Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
 });
-//manager side employees details
+
+Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
+
+Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
+Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
+Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
+
+// NOTIFICATION
+Route::get('notifications/{user}', [NotificationController::class, 'index']);
+Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
+Route::post('notifications/create', [NotificationController::class, 'store']);
 Route::get(
-    '/manager/employee-details/{employeeId}',
-    [ManagerController::class, 'employeeDetails']
+'/notifications/unread/{userId}',
+[NotificationController::class,'unreadCount']
 );
 
 /*
@@ -76,9 +75,24 @@ Route::get(
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
-    Route::get('/factory-users/{factoryId}',[FactoryUsersController::class, 'usersByFactory']);
 
-    // Route::get('/profile', [AuthController::class, 'profile']);
+    // ── Manager Productions ────────────────────────────────
+    Route::get('/manager/productions/{factoryId}',
+        [ApproveProductionController::class, 'managerProductions']);
+
+    Route::post('/manager/productions/{id}/action',
+        [ApproveProductionController::class, 'managerAction']);
+
+    // ── Owner Productions ──────────────────────────────────
+    Route::get('/owner/productions/{factoryId}',
+        [ApproveProductionController::class, 'ownerProductions']);
+
+    Route::post('/owner/productions/{id}/action',
+        [ApproveProductionController::class, 'ownerAction']);
+
+    Route::get('/employees/factories',[EmployeeController::class,'factories']);
+    Route::get('/employees/users',[EmployeeController::class,'users']);
+    Route::get('/employees-with-shift/{factoryId}', [EmployeeController::class, 'employeesWithShiftByFactory']);
 
     /*
     |---------------------------
@@ -88,7 +102,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
     Route::get('/user/profile/{id}',[EmployeeDashController::class,'userProfile']);
-
+ 
     /*
     |---------------------------
     | ROLES (OWNER ONLY)
@@ -180,7 +194,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('employees')->group(function () {
          Route::get('/employees/factory/{factoryId}',[EmployeeController::class, 'byFactory']);
         Route::get('/all_employee',          [EmployeeController::class, 'index'])->middleware('permission:view employees');
-        Route::post('/add_employee',         [EmployeeController::class, 'store'])->middleware('permission:create employees');
+        Route::post('/add_employee',         [EmployeeController::class, 'store']);
+        //->middleware('permission:create employees');
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');
         Route::put('/update_employee/{id}',  [EmployeeController::class, 'update'])->middleware('permission:edit employees');
         Route::delete('/delete_employee/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:delete employees');
@@ -206,7 +221,7 @@ Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'ma
 
 Route::prefix('productions')->group(function () {
 // Production enter karna
-//Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
+Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
 
   Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');

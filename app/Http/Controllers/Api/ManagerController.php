@@ -7,6 +7,8 @@ use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Machine;
 use App\Models\Employee;
+use App\Models\User;
+
 use Illuminate\Http\Request;
 
 class ManagerController extends Controller
@@ -14,84 +16,75 @@ class ManagerController extends Controller
     // ==========================
     // DASHBOARD
     // ==========================
-    public function dashboard($managerId)
-    {
-        // Manager ki assigned factory
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+ public function dashboard($factoryId)
+{
+    $factory = Factory::find($factoryId);
 
-        if (!$factoryId) {
-            return response()->json([
-                "message" => "No factory assigned"
-            ], 404);
-        }
-
-        $factory = Factory::find($factoryId);
-
-        // Sirf isi manager aur isi factory ki productions
-        $productions = Production::where('manager_id', $managerId)
-            ->where('factory_id', $factoryId)
-            ->get();
-
-        $varieties = $productions
-            ->groupBy('variety_type')
-            ->map(function ($item, $name) {
-
-                return [
-                    "variety_type" => $name,
-                    "ready_production" => $item->sum('ready_production')
-                ];
-
-            })
-            ->values();
-
+    if (!$factory) {
         return response()->json([
-
-            "status" => true,
-
-            "factory" => $factory,
-
-            "today_units" => $productions
-                ->where('created_at', '>=', now()->startOfDay())
-                ->sum('total_length'),
-
-            "weekly_units" => $productions
-                ->where('created_at', '>=', now()->subDays(7))
-                ->sum('total_length'),
-
-            "total_varieties" => $varieties->count(),
-
-            "machines_count" => Machine::where(
-                'factory_id',
-                $factoryId
-            )->count(),
-
-            "employees_count" => Employee::where(
-                'factory_id',
-                $factoryId
-            )->count(),
-
-            "varieties" => $varieties
-
-        ]);
+            "message" => "Factory not found"
+        ],404);
     }
+
+    $productions = Production::where(
+        'factory_id',
+        $factoryId
+    )->get();
+    $varieties = $productions
+        ->groupBy('variety_type')
+        ->map(function ($item, $name) {
+            return [
+                "variety_type" => $name,
+                "ready_production" => $item->sum('ready_production')
+            ];
+        })
+        ->values();
+
+    return response()->json([
+        "status" => true,
+        "factory" => $factory,
+
+        "today_units" => $productions
+            ->where('created_at', '>=', now()->startOfDay())
+            ->sum('total_length'),
+
+        "weekly_units" => $productions
+            ->where('created_at', '>=', now()->subDays(7))
+            ->sum('total_length'),
+
+        "total_varieties" => $varieties->count(),
+
+        "machines_count" => Machine::where(
+            'factory_id',
+            $factoryId
+        )->count(),
+
+        "employees_count" => Employee::where(
+            'factory_id',
+            $factoryId
+        )->count(),
+
+        "varieties" => $varieties
+    ]);
+}
 
     // ==========================
     // MACHINES
     // ==========================
-    public function machines($managerId)
+    public function machines($factoryId)
     {
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+        $factory = Factory::find($factoryId);
 
-        if (!$factoryId) {
+        if (!$factory) {
             return response()->json([
-                "message" => "No factory assigned"
+                "message" => "Factory not found"
             ], 404);
         }
 
-        $machines = Machine::where('factory_id', $factoryId)
-            ->get();
+        $machines = Machine::where(
+            'factory_id',
+            $factoryId
+        )->get();
 
         return response()->json([
             "status" => true,
@@ -102,18 +95,18 @@ class ManagerController extends Controller
     // ==========================
     // EMPLOYEES
     // ==========================
-    public function employees($managerId)
+    public function employees($factoryId)
     {
-        $factoryId = Production::where('manager_id', $managerId)
-            ->value('factory_id');
+        $factory = Factory::find($factoryId);
 
-        if (!$factoryId) {
+        if (!$factory) {
             return response()->json([
-                "message" => "No factory assigned"
+                "message" => "Factory not found"
             ], 404);
         }
 
-        $employees = Employee::where('factory_id', $factoryId)
+        $employees = Employee::with('user')
+            ->where('factory_id', $factoryId)
             ->get();
 
         return response()->json([
@@ -121,47 +114,92 @@ class ManagerController extends Controller
             "employees" => $employees
         ]);
     }
-    // manager side employee details 
-    public function employeeDetails($employeeId)
-{
-    $employee = Employee::with('user')
-        ->find($employeeId);
 
-    if (!$employee) {
+    // ==========================
+    // EMPLOYEE DETAILS
+    // ==========================
+    public function employeeDetails($employeeId)
+    {
+         \Log::info("Employee ID Received = ".$employeeId);
+        $employee = Employee::with('user')
+            ->find($employeeId);
+
+        if (!$employee) {
+            return response()->json([
+                'message' => 'Employee not found'
+            ], 404);
+        }
+
+        $productions = Production::where(
+            'employee_id',
+            $employee->id
+        )->get();
+
         return response()->json([
-            'message' => 'Employee not found'
+
+            'employee_id' => $employee->id,
+
+            'name' => $employee->user?->name,
+
+            'email' => $employee->user?->email,
+
+            'shift_start' => $employee->shift_starttime,
+
+            'shift_end' => $employee->shift_endtime,
+
+            'total_production' => $productions->sum('ready_production'),
+
+            'total_waste' => $productions->sum('waste_production'),
+
+            'machines_worked' => $productions
+                ->pluck('machine_id')
+                ->unique()
+                ->count(),
+
+            'total_entries' => $productions->count(),
+
+            'created_at' => $employee->created_at,
+        ]);
+    }
+    //manager profile
+    public function profile($userId)
+{
+    $user = User::find($userId);
+
+    if (!$user) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Manager not found'
         ], 404);
     }
 
-    $productions = Production::where(
-        'employee_id',
-        $employee->id
-    )->get();
+    $factoryId = Production::where(
+        'manager_id',
+        $userId
+    )->value('factory_id');
+
+    $totalEmployees = Employee::where(
+        'factory_id',
+        $factoryId
+    )->count();
+
+    $totalProduction = Production::where(
+        'factory_id',
+        $factoryId
+    )->sum('ready_production');
 
     return response()->json([
-
-        'employee_id' => $employee->id,
-
-        'name' => $employee->user?->name,
-
-        'email' => $employee->user?->email,
-
-        'shift_start' => $employee->shift_starttime,
-
-        'shift_end' => $employee->shift_endtime,
-
-        'total_production' => $productions->sum('ready_production'),
-
-        'total_waste' => $productions->sum('waste_production'),
-
-        'machines_worked' => $productions
-            ->pluck('machine_id')
-            ->unique()
-            ->count(),
-
-        'total_entries' => $productions->count(),
-
-        'created_at' => $employee->created_at,
+        'status' => true,
+        'data' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone_no' => $user->phone_no,
+            'address' => $user->address,
+            'pic' => $user->pic,
+            'total_employees' => $totalEmployees,
+            'total_production' => $totalProduction,
+        ]
     ]);
 }
 }

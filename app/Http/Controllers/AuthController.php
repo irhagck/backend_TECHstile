@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Production;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+
 
 class AuthController extends Controller
 {
@@ -25,7 +28,6 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->with('roles')->first();
 
-        // User exist nahi karta ya password galat hai
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
@@ -36,20 +38,38 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
         $role  = $user->roles->first()?->name;
 
+        // ✅ role ke hisaab se factory_id nikalo
+        $factoryId = null;
+
+        if ($role === 'manager') {
+            $factoryId = Production::where('manager_id', $user->id)
+                ->value('factory_id');
+        } elseif ($role === 'employee') {
+            $factoryId = Employee::where('user_id', $user->id)
+                ->value('factory_id');
+        }
+
+        \Log::info([
+            'user_id'    => $user->id,
+            'role'       => $role,
+            'factory_id' => $factoryId
+        ]);
+
         return response()->json([
             'success' => true,
             'data' => [
                 'token' => $token,
                 'user'  => [
-                    'id'       => $user->id,
-                    'name'     => $user->name,
-                    'email'    => $user->email,
-                    'phone_no' => $user->phone_no,
-                    'cnic'     => $user->cnic,
-                    'address'  => $user->address,
-                    'pic'      => $user->pic,
-                    'roles'    => $user->roles, // Flutter side roles[0]['name'] ke liye
-                    'role'     => $role,        // Direct role name bhi
+                    'id'         => $user->id,
+                    'name'       => $user->name,
+                    'email'      => $user->email,
+                    'phone_no'   => $user->phone_no,
+                    'cnic'       => $user->cnic,
+                    'address'    => $user->address,
+                    'pic'        => $user->pic,
+                    'roles'      => $user->roles,
+                    'role'       => $role,
+                    'factory_id' => $factoryId,
                 ]
             ]
         ], 200);

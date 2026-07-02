@@ -9,126 +9,100 @@ use App\Models\Attendence;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Factory;
+
 class ProductionController extends Controller
 {
     // 1. Show all productions
-public function index() 
-{
-    // Eager loading multiple relationships:
-    // 1. factory (Factory name ke liye)
-    // 2. employee.user (User name ke liye)
-    // 3. machine (Machine ID/Type ke liye)
-    $productions = Production::with(['factory', 'employee.user', 'machine'])->get();
+    public function index()
+    {
+        $productions = Production::with(['factory', 'employee.user', 'machine'])->get();
 
-    return response()->json($productions, 200);
-}
-    // public function index()
-    // {
-    //     return response()->json(Production::all(), 200);
-    // }
+        return response()->json($productions, 200);
+    }
 
-    // 2. Add production
- public function store(Request $request)
+    // 2. Add production employee
+   public function store(Request $request)
 {
     \Log::info('STORE HIT');
 
     $request->validate([
-        'machine_id' => 'required',
-        'employee_id' => 'required',
-        'factory_id' => 'required',
-        'variety_type' => 'required',
-        'total_length' => 'required',
-        'ready_production' => 'required',
-        'waste_production' => 'required',
+        'machine_id' => 'required|integer',
+        'user_id' => 'required|integer', // frontend se AuthService.userId aayega
+        'factory_id' => 'required|integer',
+        'variety_type' => 'required|string',
+        'total_length' => 'required|numeric',
+        'ready_production' => 'required|numeric',
+        'waste_production' => 'required|numeric',
     ]);
 
     $factory = Factory::find($request->factory_id);
-
     if (!$factory) {
-        return response()->json(["message" => "Factory not found"], 404);
+        return response()->json(['message' => 'Factory not found'], 404);
     }
 
-    $employee = Employee::where('user_id', $request->employee_id)->first();
-
-<<<<<<< HEAD
-    $batchId = $lastProduction?->batch_id;
-    $managerId = $lastProduction?->manager_id;
-    $shiftStart = $lastProduction?->shift_start;
-    $shiftEnd   = $lastProduction?->shift_end;
-
-   //access employee id based on user id 
-    $employee = Employee::where('user_id',$request->employee_id)
+    // ✅ user_id se employees table ka record dhoondo
+    $employee = Employee::where('user_id', $request->user_id)
+        ->where('factory_id', $request->factory_id)
         ->first();
 
-    if(!$employee){
-        return response()->json([
-            "message"=>"Employee record not found"
-        ],404);
-=======
     if (!$employee) {
-        return response()->json(["message" => "Employee not found"], 404);
->>>>>>> fe9b0c82921ef33ac30ff2a5a2b5a7d0a5c19091
+        return response()->json(['message' => 'Employee not found for this user/factory'], 404);
     }
-
-    // 🔥 LAST PRODUCTION GET
-   // 🔥 LAST PRODUCTION GET
-$lastProduction = Production::where('machine_id', $request->machine_id)
-    ->whereNotNull('batch_id')
+       $lastProduction = Production::where('machine_id', $request->machine_id)
     ->latest()
     ->first();
 
 $batchId = $lastProduction?->batch_id;
-$shiftStart = $lastProduction?->shift_start;
-$shiftEnd = $lastProduction?->shift_end;
 
-// ✅ Manager ID previous production se copy hogi
-$managerId = $lastProduction?->manager_id;
+// ✅ manager_id ab poori factory se dhoondo 
+$managerId = Production::where('factory_id', $request->factory_id)
+    ->whereNotNull('manager_id')
+    ->latest()
+    ->value('manager_id');
 
-// 🔥 OLD REMAINING
-$previousRemaining = $lastProduction?->remaining ?? $request->total_length;
+        $previousRemaining = $lastProduction?->remaining ?? $request->total_length;
 
-// ✅ Ready + Waste dono minus hongay
-$newRemaining =
-    $previousRemaining
-    - $request->ready_production
-    - $request->waste_production;
+        $newRemaining =
+            $previousRemaining
+            - $request->ready_production
+            - $request->waste_production;
 
-if ($newRemaining < 0) {
-    return response()->json([
-        "message" => "Production limit exceeded"
-    ], 400);
-}
+        if ($newRemaining < 0) {
+            return response()->json([
+                "message" => "Production limit exceeded"
+            ], 400);
+        }
 
-$production = Production::create([
-    'machine_id' => $request->machine_id,
-    'employee_id' => $employee->id,
-    'factory_id' => $request->factory_id,
-    'manager_id' => $managerId,
+        $production = Production::create([
+            'machine_id' => $request->machine_id,
+            'employee_id' => $employee->id, // ✅ employees.id
 
-    'variety_type' => $request->variety_type,
-    'total_length' => $request->total_length,
+            'factory_id' => $request->factory_id,
+            'manager_id' => $managerId,
 
-    'ready_production' => $request->ready_production,
-    'waste_production' => $request->waste_production,
+            'variety_type' => $request->variety_type,
+            'total_length' => $request->total_length,
 
-    // ✅ ready + waste deduct karke save
-    'remaining' => $newRemaining,
+            'ready_production' => $request->ready_production,
+            'waste_production' => $request->waste_production,
 
-    'batch_id' => $batchId,
+            'remaining' => $newRemaining,
 
-    'shift_start' => $shiftStart ?? now(),
-    'shift_end' => $shiftEnd,
+            'batch_id' => $batchId,
 
-    'status' => 1,
-]);
+            'shift_start' => $employee->shift_starttime,
+            'shift_end' => $employee->shift_endtime,
 
-    return response()->json([
-        'message' => 'Production submitted successfully',
-        'data' => $production
-    ]);
-}
+            'status' => 1,
+        ]);
 
-    // 3. Show single production
+        return response()->json([
+            'message' => 'Production submitted successfully',
+            'data' => $production
+        ]);
+    }
+
+    // 3. Single production
     public function edit($id)
     {
         $production = Production::find($id);
@@ -154,7 +128,7 @@ $production = Production::create([
         return response()->json([
             'message' => 'Production updated successfully',
             'data' => $production
-        ], 200);
+        ]);
     }
 
     // 5. Delete production
@@ -170,75 +144,55 @@ $production = Production::create([
 
         return response()->json([
             'message' => 'Production deleted successfully'
-        ], 200);
+        ]);
     }
 
-    //production according status
-public function pending()
-{
-    $productions = Production::with([
-        'machine',
-        'employee.user'
-    ])
-    ->where('status', 1)
-    ->latest()
-    ->get();
+    // 9. Assign production (FIXED)
+    public function assignProduction(Request $request)
+    {
+        $request->validate([
+            'machine_id' => 'required|integer',
+            'employee_id' => 'required|integer',
+            'variety_type' => 'required|string',
+            'total_length' => 'required|numeric',
+        ]);
 
-    return response()->json(
-        $productions,
-        200
-    );
-}
+        $employee = Employee::find($request->employee_id);
 
-public function approve($id)
-{
-    $production =
-        Production::findOrFail($id);
+        if (!$employee) {
+            return response()->json(['message' => 'Employee not found'], 404);
+        }
 
-    $production->status = 2;
+        $last = Production::where('machine_id', $request->machine_id)
+            ->latest()
+            ->first();
 
-    $production->save();
+        $batchId = 'BATCH-' . $request->machine_id . '-' . time();
 
-    return response()->json([
-        'message' =>
-            'Production Approved'
-    ]);
-}
+        Production::create([
+            'batch_id' => $batchId,
+            'machine_id' => $request->machine_id,
 
-public function reject($id)
-{
-    $production =
-        Production::findOrFail($id);
+            'employee_id' => $employee->id, // ✅ correct
 
-    $production->status = 3;
+            'factory_id' => $last?->factory_id ?? 1,
+            'manager_id' => $last?->manager_id,
 
-    $production->save();
+            'variety_type' => $request->variety_type,
+            'total_length' => $request->total_length,
 
-    return response()->json([
-        'message' =>
-            'Production Rejected'
-    ]);
-}
-// 6. Assign production to employee using unique batch_id
+            'ready_production' => 0,
+            'remaining' => $request->total_length,
 
-public function assignProduction(Request $request) { $request->validate([ 
-    'machine_id' => 'required|integer', 
-    'variety_type' => 'required|string', 
-    'total_length' => 'required|numeric', ]);
- // copy the data from the last production of the machine 
- $last = Production::where('machine_id', $request->machine_id) ->latest() ->first();
- //Unique batch_id generate
-  $batchId = 'BATCH-' . $request->machine_id . '-' . time();
-  $employee = Employee::find($request->employee_id); 
-  Production::create([ 'batch_id' => $batchId, 'machine_id' => $request->machine_id,
-   'employee_id' => $last?->employee_id, 
-   'factory_id' => $last?->factory_id ?? 1, 
-   'manager_id' => $last?->manager_id, 
-   'variety_type' => $request->variety_type, 
-   'total_length' => $request->total_length, 
-   'ready_production' => 0, 
-   'shift_start' => $employee?->shift_starttime, 
-   'shift_end' => $employee?->shift_endtime, 'status' => 1, ]);
-    return response()->json([ 'message' => 'Production assigned successfully',
-     'batch_id' => $batchId, ], 201); }
+            'shift_start' => $employee->shift_starttime,
+            'shift_end' => $employee->shift_endtime,
+
+            'status' => 1,
+        ]);
+
+        return response()->json([
+            'message' => 'Production assigned successfully',
+            'batch_id' => $batchId,
+        ], 201);
+    }
 }

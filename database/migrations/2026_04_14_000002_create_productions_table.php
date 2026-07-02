@@ -32,9 +32,8 @@ return new class extends Migration
 
             $table->unsignedBigInteger('manager_id')->nullable();
 
-            $table->dateTime('shift_start')->nullable();
-
-            $table->dateTime('shift_end')->nullable();
+            $table->time('shift_start')->nullable();
+            $table->time('shift_end')->nullable();
 
             $table->timestamps();
 

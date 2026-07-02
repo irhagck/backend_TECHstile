@@ -36,9 +36,9 @@ public function machine() {
     return $this->belongsTo(Machine::class);
 }
   public function machineemploye()
-    {
-        return $this->belongsTo(Machine::class, 'id');
-    }
+{
+    return $this->belongsTo(Machine::class, 'machine_id', 'id');
+}
 
     public function employeedetails()
     {
