@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AttendenceController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ManagerController;
+use App\Http\Controllers\Api\OwnerController;
 use App\Http\Controllers\Api\MachineAssignmentController;
 use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
@@ -56,6 +57,7 @@ Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 
 Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
 Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
 Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
+Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 
 // NOTIFICATION
 Route::get('notifications/{user}', [NotificationController::class, 'index']);

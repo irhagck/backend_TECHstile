@@ -114,7 +114,10 @@ class FactoryController extends Controller
         return response()->json(['message' => 'Factory not found'], 404);
     }
 
-    $productions = Production::where('factory_id', $id)->get();
+    // ✅ rejected productions (status 3 = manager rejected, 5 = owner rejected) ko exclude karo
+    $productions = Production::where('factory_id', $id)
+        ->whereNotIn('status', [3, 5])
+        ->get();
 
     // ✅ Variety ke hisaab se group karo aur ready_production sum karo
     $varietiesGrouped = $productions
@@ -132,18 +135,21 @@ class FactoryController extends Controller
         "status"  => true,
         "factory" => $factory,
 
+        // ✅ "ready_production" = asal ban chuki production, total_length sirf batch ka target hai
         "today_units" => $productions
             ->where('created_at', '>=', now()->startOfDay())
-            ->sum('total_length'),
+            ->sum('ready_production'),
 
         "weekly_units" => $productions
             ->where('created_at', '>=', now()->subDays(7))
-            ->sum('total_length'),
+            ->sum('ready_production'),
 
-        "total_varieties" => $productions->pluck('variety_type')->unique()->count(),
+        "total_varieties" => $productions->pluck('variety_type')->unique()->filter()->count(),
 
         "machines_count"  => Machine::where('factory_id', $id)->count(),
-        "employees_count" => $productions->pluck('employee_id')->unique()->count(),
+
+        // ✅ Factory ke actual assigned employees ginte hain, sirf un logon ko nahi jinki production entry hui
+        "employees_count" => Employee::where('factory_id', $id)->count(),
 
         // ✅ Ab varieties grouped data hai — sirf names nahi
         "varieties" => $varietiesGrouped,

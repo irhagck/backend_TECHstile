@@ -20,9 +20,23 @@ class MachineController extends Controller
         $factoryId
     )->get();
 
+    // ✅ "Active" machine = jis par aaj (last 24 ghantay) production scan/entry hui ho
+    $activeMachineIds = Production::where('factory_id', $factoryId)
+        ->where('created_at', '>=', now()->subHours(24))
+        ->pluck('machine_id')
+        ->unique();
+
+    $machines = $machines->map(function ($m) use ($activeMachineIds) {
+        $arr = $m->toArray();
+        $arr['is_active'] = $activeMachineIds->contains($m->id);
+        return $arr;
+    });
+
     return response()->json([
         'status' => true,
-        'data' => $machines
+        'data' => $machines,
+        'total_machines'  => $machines->count(),
+        'active_machines' => $activeMachineIds->count(),
     ]);
 }
 
@@ -123,107 +137,101 @@ class MachineController extends Controller
         ],404);
     }
 
+    // ✅ Is machine par ab tak jitne employees assign ho chuke hain (dono shifts), un sabko nikalo
+    $employeeIds = Production::where('machine_id', $id)
+        ->whereNotNull('employee_id')
+        ->distinct()
+        ->pluck('employee_id');
 
-    $production = Production::with([
-        'employeedetails.user'
-    ])
-    ->where('machine_id',$id)
-    ->latest()
-    ->first();
-
-
-    if(!$production){
-
+    if ($employeeIds->isEmpty()) {
         return response()->json([
-            'machine_id'=>$machine->id,
-            'machine_type'=>$machine->machine_type,
-            'machine_status'=>$machine->status,
-            'message'=>'No production found'
+            'machine_id'    => $machine->id,
+            'machine_name'  => $machine->machine_name,
+            'machine_type'  => $machine->machine_type,
+            'shifts'        => [],
+            'message'       => 'No production found',
         ]);
-
     }
 
+    $shifts = [];
 
+    foreach ($employeeIds as $empId) {
 
-    // same batch ready sum
+        // Us employee ki is machine par sab se latest assignment/batch
+        $latest = Production::with(['employeedetails.user'])
+            ->where('machine_id', $id)
+            ->where('employee_id', $empId)
+            ->latest()
+            ->first();
 
-    // Same batch ready production sum
-$readyProduction = Production::where('machine_id', $id)
-    ->where('batch_id', $production->batch_id)
-    ->sum('ready_production');
+        if (!$latest) {
+            continue;
+        }
 
-// Same batch waste production sum
-$wasteProduction = Production::where('machine_id', $id)
-    ->where('batch_id', $production->batch_id)
-    ->sum('waste_production');
+        // Usi batch ki ready/waste sum (sirf usi employee/batch ki)
+        $readyProduction = Production::where('machine_id', $id)
+            ->where('employee_id', $empId)
+            ->where('batch_id', $latest->batch_id)
+            ->sum('ready_production');
 
-// Remaining = Total - Ready - Waste
-$remaining = max(
-    0,
-    $production->total_length - ($readyProduction + $wasteProduction)
-);
+        $wasteProduction = Production::where('machine_id', $id)
+            ->where('employee_id', $empId)
+            ->where('batch_id', $latest->batch_id)
+            ->sum('waste_production');
 
+        $remaining = max(
+            0,
+            $latest->total_length - ($readyProduction + $wasteProduction)
+        );
 
+        $shifts[] = [
+            'employee_id'      => $latest->employee_id,
+            'user_id'          => optional($latest->employeedetails)->user_id,
+            'employee_name'    => optional($latest->employeedetails)->user->name ?? '',
+            'shift_start'      => $latest->employeedetails?->shift_starttime,
+            'shift_end'        => $latest->employeedetails?->shift_endtime,
+            'batch_id'         => $latest->batch_id,
+            'variety_type'     => $latest->variety_type,
+            'total_length'     => $latest->total_length,
+            'ready_production' => $readyProduction,
+            'waste_production' => $wasteProduction,
+            'remaining'        => $remaining,
+            'status'           => $latest->status,
+        ];
+    }
 
-    // only daily
+    // ✅ Sort: din ki shift (08:00) pehle, raat ki shift (20:00) baad me
+    usort($shifts, function ($a, $b) {
+        return strcmp((string) $a['shift_start'], (string) $b['shift_start']);
+    });
 
-   $dailyProduction = Production::where('machine_id', $id)
-    ->whereDate('created_at', Carbon::today())
-    ->sum('ready_production');
+    $dailyProduction = Production::where('machine_id', $id)
+        ->whereDate('created_at', Carbon::today())
+        ->sum('ready_production');
 
-$weeklyProduction = Production::where('machine_id', $id)
-    ->whereBetween('created_at', [
-        Carbon::now()->startOfWeek(),
-        Carbon::now()->endOfWeek()
-    ])
-    ->sum('ready_production');
+    $weeklyProduction = Production::where('machine_id', $id)
+        ->whereBetween('created_at', [
+            Carbon::now()->startOfWeek(),
+            Carbon::now()->endOfWeek()
+        ])
+        ->sum('ready_production');
 
-$yearlyProduction = Production::where('machine_id', $id)
-    ->whereYear('created_at', Carbon::now()->year)
-    ->sum('ready_production');
+    $yearlyProduction = Production::where('machine_id', $id)
+        ->whereYear('created_at', Carbon::now()->year)
+        ->sum('ready_production');
+
     return response()->json([
 
+        "machine_id"   => $machine->id,
+        "machine_name" => $machine->machine_name,
+        "machine_type" => $machine->machine_type,
 
-        "machine_id"=>$machine->id,
+        // ✅ Ab dono shifts ke employees is array me aate hain
+        "shifts" => $shifts,
 
-        "machine_type"=>$machine->machine_type,
-
-        "machine_status"=>$machine->status,
-
-
-        "employee_id"=>$production->employee_id,
-
-
-        "employee_name" =>
-        optional($production->employeedetails)
-        ->user
-        ->name ?? "",
-
-
-        "shift_start" =>
-        $production->employeedetails?->shift_starttime,
-
-
-        "shift_end" =>
-        $production->employeedetails?->shift_endtime,
-
-
-
-        "variety_type"=>$production->variety_type,
-
-
-        "total_length"=>$production->total_length,
-
-
-        "ready_production"=>$readyProduction,
-         "waste_production" => $wasteProduction,
-
-        "remaining"=>$remaining,
         "weekly_production"  => $weeklyProduction,
-        "yearly_production" => $yearlyProduction,
-
-        "daily_production"=>$dailyProduction,
-
+        "yearly_production"  => $yearlyProduction,
+        "daily_production"   => $dailyProduction,
 
     ]);
 }

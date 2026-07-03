@@ -35,81 +35,60 @@ class EmployeeDashController extends Controller
         ->latest()
         ->value('manager_id');
 
-    // Employee ki approved productions
-    $productions = Production::with([
-        'machineemploye',
-        'employeedetails.user'
-    ])
-        ->where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('status', 2)
-        ->whereBetween('created_at', [
-            Carbon::now()->subDays(7),
-            Carbon::now()
-        ])
-        ->get();
+    // ✅ Employee ko jitni bhi machines assign hain (koi bhi status — pending ho ya approved),
+    // taake dashboard sirf production approve hony ka wait na kare
+    $assignedMachineIds = Production::where('employee_id', $employee->id)
+        ->distinct()
+        ->pluck('machine_id');
 
-    $grouped = $productions->groupBy(function ($item) {
-        return $item->machine_id . '_' .
-               $item->variety_type . '_' .
-               $item->batch_id;
-    });
+    $data = $assignedMachineIds->map(function ($machineId) use ($employee) {
 
-    $data = $grouped->map(function ($group) use ($managerId) {
+        $latest = Production::with(['machineemploye', 'employeedetails.user'])
+            ->where('employee_id', $employee->id)
+            ->where('machine_id', $machineId)
+            ->latest()
+            ->first();
 
-        $first = $group->first();
+        if (!$latest) return null;
 
-        $readyProduction = $group->sum('ready_production');
+        $readyProduction = Production::where('employee_id', $employee->id)
+            ->where('machine_id', $machineId)
+            ->where('batch_id', $latest->batch_id)
+            ->sum('ready_production');
 
-        $totalLength = $first->total_length;
+        $totalLength = $latest->total_length;
 
         $progress = $totalLength > 0
             ? round(($readyProduction / $totalLength) * 100, 2)
             : 0;
 
         return [
-            'machine_id' => $first->machine_id,
-
-            'machine_type' =>
-                $first->machineemploye?->machine_type ?? '',
-
-            'machine_status' =>
-                $first->machineemploye?->status ?? '',
-
-            'employee_name' =>
-                $first->employeedetails?->user?->name ?? '',
-
-            'variety_type' =>
-                $first->variety_type,
-
-            'batch_id' =>
-                $first->batch_id,
-
-            'ready_production' =>
-                $readyProduction,
-
-            'total_length' =>
-                $totalLength,
-
-            'progress' =>
-                $progress,
-
-            'factory_id' =>
-                $first->factory_id,
-
-            'manager_id' =>
-                $managerId,
-
-            'from_date' =>
-                Carbon::now()
-                    ->subDays(7)
-                    ->format('Y-m-d'),
-
-            'to_date' =>
-                Carbon::now()
-                    ->format('Y-m-d'),
+            'machine_id'     => $latest->machine_id,
+            'machine_name'   => $latest->machineemploye?->machine_name ?? '',
+            'machine_type'   => $latest->machineemploye?->machine_type ?? '',
+            'employee_name'  => $latest->employeedetails?->user?->name ?? '',
+            'variety_type'   => $latest->variety_type,
+            'batch_id'       => $latest->batch_id,
+            'ready_production' => $readyProduction,
+            'total_length'   => $totalLength,
+            'progress'       => $progress,
+            'status'         => $latest->status,
+            'factory_id'     => $latest->factory_id,
         ];
-    })->values();
+    })->filter()->values();
+
+    // ✅ Daily/Weekly = SIRF approved production (status 2 = manager approved, 4 = owner approved),
+    // sab machines mila kar
+    $approvedQuery = Production::where('employee_id', $employee->id)
+        ->whereIn('status', [2, 4]);
+
+    $dailyApproved = (clone $approvedQuery)
+        ->whereDate('created_at', Carbon::today())
+        ->sum('ready_production');
+
+    $weeklyApproved = (clone $approvedQuery)
+        ->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])
+        ->sum('ready_production');
 
     return response()->json([
         'employee_name' =>
@@ -124,6 +103,10 @@ class EmployeeDashController extends Controller
         'total_machines' =>
             $data->count(),
 
+        'daily_ready_production'  => $dailyApproved,
+        'weekly_ready_production' => $weeklyApproved,
+
+        // ✅ backward-compat field names (purane frontend ke liye)
         'total_production' =>
             $data->sum('total_length'),
 

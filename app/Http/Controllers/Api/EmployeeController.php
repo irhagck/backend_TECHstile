@@ -85,9 +85,26 @@ class EmployeeController extends Controller
      */
     public function byFactory($factoryId)
     {
-        return Employee::with('user')
+        $employees = Employee::with('user')
             ->where('factory_id', $factoryId)
             ->get();
+
+        $activeEmployeeIds = \App\Models\Production::where('factory_id', $factoryId)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->pluck('employee_id')
+            ->unique();
+
+        $mapped = $employees->map(function ($e) use ($activeEmployeeIds) {
+            $arr = $e->toArray();
+            $arr['is_active'] = $activeEmployeeIds->contains($e->id);
+            return $arr;
+        });
+
+        return response()->json([
+            'data'              => $mapped,
+            'total_employees'   => $mapped->count(),
+            'active_employees'  => $activeEmployeeIds->count(),
+        ]);
     }
 
     /**

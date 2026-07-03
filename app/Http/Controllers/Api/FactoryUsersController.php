@@ -22,18 +22,36 @@ class FactoryUsersController extends Controller
             ? User::with('roles')->find($managerId)
             : null;
 
-        $employeeUserIds = \App\Models\Employee::where('factory_id', $factoryId)
+        $employees = \App\Models\Employee::where('factory_id', $factoryId)->get();
+        $employeeUserIds = $employees->pluck('user_id');
+
+        // ✅ "Active" = jis employee ne aaj (last 24 ghantay) machine scan kar ke
+        // production submit ki ho
+        $activeEmployeeIds = Production::where('factory_id', $factoryId)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->pluck('employee_id')
+            ->unique();
+
+        $activeUserIds = $employees
+            ->whereIn('id', $activeEmployeeIds)
             ->pluck('user_id');
 
         $users = User::with('roles')
             ->whereIn('id', $employeeUserIds)
-            ->get();
+            ->get()
+            ->map(function ($user) use ($employees, $activeUserIds) {
+                $emp = $employees->firstWhere('user_id', $user->id);
+                $arr = $user->toArray();
+                $arr['employee_id'] = $emp?->id;
+                $arr['is_active']   = $activeUserIds->contains($user->id);
+                return $arr;
+            });
 
         return response()->json([
             'manager'      => $manager,
             'data'         => $users,
             'total_users'  => $users->count(),
-            'active_users' => $users->count(),
+            'active_users' => $activeUserIds->count(),
         ]);
     }
 

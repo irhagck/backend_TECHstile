@@ -100,6 +100,28 @@ public function managerProductions($factoryId)
         ]);
     }
 
+    // ── ✅ owner(s) ko bhi batao k manager ne approve/reject kiya ──
+    try {
+        $machineName  = optional($prod->machineemploye)->machine_name ?? 'Machine';
+        $employeeName = optional($prod->employeedetails)->user->name ?? 'Employee';
+
+        $owners = \App\Models\User::role('owner')->get();
+        foreach ($owners as $owner) {
+            Notification::create([
+                'user_id'       => $owner->id,
+                'production_id' => $prod->id,
+                'sender_id'     => $request->user()->id,
+                'title'         => $request->action === 'approve' ? 'Manager Approved Production' : 'Manager Rejected Production',
+                'message'       => $request->action === 'approve'
+                    ? "Manager approved $employeeName's production on machine \"$machineName\""
+                    : "Manager rejected $employeeName's production on machine \"$machineName\"",
+                'type'          => $request->action === 'approve' ? 'approved' : 'rejected',
+            ]);
+        }
+    } catch (\Exception $e) {
+        \Log::error('Owner notification create failed: ' . $e->getMessage());
+    }
+
     return response()->json([
         'message' => $request->action === 'approve' ? 'Approved' : 'Rejected',
         'production' => $prod,
