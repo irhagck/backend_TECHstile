@@ -9,6 +9,8 @@ use App\Models\Attendence;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Factory;
+use App\Models\Machine;
+use App\Models\Notification;
 
 class ProductionController extends Controller
 {
@@ -24,6 +26,9 @@ class ProductionController extends Controller
    public function store(Request $request)
 {
     \Log::info('STORE HIT');
+
+    // ✅ Current time employee ki shift window ke andar hai ya nahi (overnight shifts bhi handle karta hai)
+    // e.g. day shift 08:00-20:00, night shift 20:00-08:00 (agla din)
 
     $request->validate([
         'machine_id' => 'required|integer',
@@ -47,6 +52,17 @@ class ProductionController extends Controller
 
     if (!$employee) {
         return response()->json(['message' => 'Employee not found for this user/factory'], 404);
+    }
+
+    // ✅ Employee apni shift ke ellawa waqt me production submit nahi kar sakta
+    // (Ye restriction sirf tab lagta hai jab employee khud (QR scan se) submit kar raha ho —
+    //  agar owner/manager kisi employee ki taraf se enter kar raha hai to skip)
+    $isSelfSubmission = $request->user() && $request->user()->id == $request->user_id;
+
+    if ($isSelfSubmission && !$this->isWithinShift($employee->shift_starttime, $employee->shift_endtime)) {
+        return response()->json([
+            'message' => "You can only submit production during your shift ({$employee->shift_starttime} - {$employee->shift_endtime})",
+        ], 403);
     }
        $lastProduction = Production::where('machine_id', $request->machine_id)
     ->latest()
@@ -95,6 +111,26 @@ $managerId = Production::where('factory_id', $request->factory_id)
 
             'status' => 1,
         ]);
+
+        // ✅ Owner(s) ko notification bhejo — employee name + machine name ke sath
+        try {
+            $machineName = Machine::where('id', $request->machine_id)->value('machine_name');
+            $employeeName = $employee->user?->name ?? 'Employee';
+
+            $owners = User::role('owner')->get();
+            foreach ($owners as $owner) {
+                Notification::create([
+                    'user_id'       => $owner->id,
+                    'production_id' => $production->id,
+                    'sender_id'     => $request->user_id,
+                    'title'         => 'New Production Submitted',
+                    'message'       => "$employeeName submitted production on machine \"$machineName\" — pending approval",
+                    'type'          => 'production_created',
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Owner notification create failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Production submitted successfully',
@@ -194,5 +230,27 @@ $managerId = Production::where('factory_id', $request->factory_id)
             'message' => 'Production assigned successfully',
             'batch_id' => $batchId,
         ], 201);
+    }
+
+    // ✅ Helper: check karo current time employee ki shift window ke andar hai ya nahi
+    // Overnight shifts (e.g. 20:00 - 08:00) ko bhi handle karta hai
+    private function isWithinShift($start, $end)
+    {
+        if (!$start || !$end) {
+            // Agar shift assign hi nahi hai to allow kar do (fail-open) taake purana data na tootay
+            return true;
+        }
+
+        $now   = \Carbon\Carbon::now()->format('H:i:s');
+        $start = \Carbon\Carbon::parse($start)->format('H:i:s');
+        $end   = \Carbon\Carbon::parse($end)->format('H:i:s');
+
+        if ($start <= $end) {
+            // Normal shift (e.g. 08:00 - 20:00)
+            return $now >= $start && $now <= $end;
+        }
+
+        // Overnight shift (e.g. 20:00 - 08:00 agle din)
+        return $now >= $start || $now <= $end;
     }
 }

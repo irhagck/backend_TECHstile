@@ -26,10 +26,9 @@ class ManagerController extends Controller
         ],404);
     }
 
-    $productions = Production::where(
-        'factory_id',
-        $factoryId
-    )->get();
+    $productions = Production::where('factory_id', $factoryId)
+        ->whereNotIn('status', [3, 5]) // rejected productions exclude karo
+        ->get();
     $varieties = $productions
         ->groupBy('variety_type')
         ->map(function ($item, $name) {
@@ -46,11 +45,11 @@ class ManagerController extends Controller
 
         "today_units" => $productions
             ->where('created_at', '>=', now()->startOfDay())
-            ->sum('total_length'),
+            ->sum('ready_production'),
 
         "weekly_units" => $productions
             ->where('created_at', '>=', now()->subDays(7))
-            ->sum('total_length'),
+            ->sum('ready_production'),
 
         "total_varieties" => $varieties->count(),
 
@@ -86,9 +85,23 @@ class ManagerController extends Controller
             $factoryId
         )->get();
 
+        // ✅ "Active" machine = jis par aaj (last 24 ghantay) production scan/entry hui ho
+        $activeMachineIds = Production::where('factory_id', $factoryId)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->pluck('machine_id')
+            ->unique();
+
+        $machines = $machines->map(function ($m) use ($activeMachineIds) {
+            $arr = $m->toArray();
+            $arr['is_active'] = $activeMachineIds->contains($m->id);
+            return $arr;
+        });
+
         return response()->json([
             "status" => true,
-            "machines" => $machines
+            "machines" => $machines,
+            "total_machines"  => $machines->count(),
+            "active_machines" => $activeMachineIds->count(),
         ]);
     }
 
@@ -109,9 +122,24 @@ class ManagerController extends Controller
             ->where('factory_id', $factoryId)
             ->get();
 
+        // ✅ "Active" employee = jisne aaj (last 24 ghantay) machine scan kar ke
+        // production submit ki ho
+        $activeEmployeeIds = Production::where('factory_id', $factoryId)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->pluck('employee_id')
+            ->unique();
+
+        $employees = $employees->map(function ($e) use ($activeEmployeeIds) {
+            $arr = $e->toArray();
+            $arr['is_active'] = $activeEmployeeIds->contains($e->id);
+            return $arr;
+        });
+
         return response()->json([
             "status" => true,
-            "employees" => $employees
+            "employees" => $employees,
+            "total_employees"  => $employees->count(),
+            "active_employees" => $activeEmployeeIds->count(),
         ]);
     }
 
@@ -188,6 +216,8 @@ class ManagerController extends Controller
         $factoryId
     )->sum('ready_production');
 
+    $factoryName = Factory::where('id', $factoryId)->value('name');
+
     return response()->json([
         'status' => true,
         'data' => [
@@ -197,6 +227,8 @@ class ManagerController extends Controller
             'phone_no' => $user->phone_no,
             'address' => $user->address,
             'pic' => $user->pic,
+            'factory_id' => $factoryId,
+            'factory_name' => $factoryName,
             'total_employees' => $totalEmployees,
             'total_production' => $totalProduction,
         ]
