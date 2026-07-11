@@ -68,7 +68,7 @@ public function managerProductions($factoryId)
     // ── MANAGER: approve or reject ────────────────────────────
     // POST /api/manager/productions/{id}/action
     // body: { "action": "approve" | "reject" }
-    public function managerAction(Request $request, $id)
+   public function managerAction(Request $request, $id)
 {
     $request->validate(['action' => 'required|in:approve,reject']);
 
@@ -84,6 +84,8 @@ public function managerProductions($factoryId)
     $prod->status = $request->action === 'approve' ? 2 : 3;
     $prod->save();
 
+    $managerName = $request->user()->name ?? 'Manager';
+
     // ── notification employee ko bhejo ──
     $employeeUserId = $prod->employeedetails->user->id ?? null;
 
@@ -91,16 +93,16 @@ public function managerProductions($factoryId)
         Notification::create([
             'user_id'        => $employeeUserId,
             'production_id'  => $prod->id,
-            'sender_id'      => $request->user()->id, // manager ka id (auth se)
+            'sender_id'      => $request->user()->id,
             'title'          => $request->action === 'approve' ? 'Production Approved' : 'Production Rejected',
             'message'        => $request->action === 'approve'
-                ? 'Your production has been approved by manager'
-                : 'Your production has been rejected by manager',
+                ? "Your production has been approved by $managerName"
+                : "Your production has been rejected by $managerName",
             'type'           => $request->action === 'approve' ? 'approved' : 'rejected',
         ]);
     }
 
-    // ── ✅ owner(s) ko bhi batao k manager ne approve/reject kiya ──
+    // ── owner(s) ko bhi batao ──
     try {
         $machineName  = optional($prod->machineemploye)->machine_name ?? 'Machine';
         $employeeName = optional($prod->employeedetails)->user->name ?? 'Employee';
@@ -113,8 +115,8 @@ public function managerProductions($factoryId)
                 'sender_id'     => $request->user()->id,
                 'title'         => $request->action === 'approve' ? 'Manager Approved Production' : 'Manager Rejected Production',
                 'message'       => $request->action === 'approve'
-                    ? "Manager approved $employeeName's production on machine \"$machineName\""
-                    : "Manager rejected $employeeName's production on machine \"$machineName\"",
+                    ? "$managerName approved $employeeName's production on \"$machineName\""
+                    : "$managerName rejected $employeeName's production on \"$machineName\"",
                 'type'          => $request->action === 'approve' ? 'approved' : 'rejected',
             ]);
         }
@@ -158,7 +160,7 @@ public function managerProductions($factoryId)
     // ── OWNER: approve or reject ──────────────────────────────
     // POST /api/owner/productions/{id}/action
     // body: { "action": "approve" | "reject" }
-   public function ownerAction(Request $request, $id)
+  public function ownerAction(Request $request, $id)
 {
     $request->validate(['action' => 'required|in:approve,reject']);
 
@@ -167,7 +169,9 @@ public function managerProductions($factoryId)
     $prod->status = $request->action === 'approve' ? 4 : 5;
     $prod->save();
 
-    // ── notification (wrapped, production approval isse affect nahi hoga) ──
+    $ownerName = $request->user()->name ?? 'Owner';
+
+    // ── employee ko notify karo ──
     try {
         $employeeUserId = $prod->employeedetails->user->id ?? null;
 
@@ -178,13 +182,34 @@ public function managerProductions($factoryId)
                 'sender_id'      => $request->user()->id,
                 'title'          => $request->action === 'approve' ? 'Production Approved' : 'Production Rejected',
                 'message'        => $request->action === 'approve'
-                    ? 'Your production has been approved by owner'
-                    : 'Your production has been rejected by owner',
+                    ? "Your production has been approved by $ownerName"
+                    : "Your production has been rejected by $ownerName",
                 'type'           => $request->action === 'approve' ? 'approved' : 'rejected',
             ]);
         }
     } catch (\Exception $e) {
         \Log::error('Notification create failed: ' . $e->getMessage());
+    }
+
+    // ── manager ko bhi notify karo ──
+    try {
+        if ($prod->manager_id) {
+            $machineName  = optional($prod->machineemploye)->machine_name ?? 'Machine';
+            $employeeName = optional($prod->employeedetails)->user->name ?? 'Employee';
+
+            Notification::create([
+                'user_id'       => $prod->manager_id,
+                'production_id' => $prod->id,
+                'sender_id'     => $request->user()->id,
+                'title'         => $request->action === 'approve' ? 'Owner Approved Production' : 'Owner Rejected Production',
+                'message'       => $request->action === 'approve'
+                    ? "$ownerName approved $employeeName's production on \"$machineName\""
+                    : "$ownerName rejected $employeeName's production on \"$machineName\"",
+                'type'          => $request->action === 'approve' ? 'approved' : 'rejected',
+            ]);
+        }
+    } catch (\Exception $e) {
+        \Log::error('Manager notification create failed: ' . $e->getMessage());
     }
 
     return response()->json([
