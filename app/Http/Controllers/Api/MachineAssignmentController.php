@@ -34,8 +34,6 @@ class MachineAssignmentController extends Controller
             'employee_id' => 'required|integer',
             'factory_id'   => 'required|integer',
             'machine_ids'  => 'required|array',
-            'variety_type' => 'required|string',
-            'total_length' => 'required|numeric',
         ]);
 
         $employee = Employee::find($request->employee_id);
@@ -51,24 +49,30 @@ class MachineAssignmentController extends Controller
 
             $exists = Production::where('employee_id', $employee->id)
                 ->where('machine_id', $machineId)
-                ->whereNull('shift_end')
                 ->exists();
 
             if ($exists) continue;
 
+            // ✅ Sirf assignment banti hai — total_length/variety_type abhi NULL rahenge,
+            // "Assign Production Batch" se baad me set honge (machine ke liye shared)
             Production::create([
                 'manager_id' => $request->manager_id,
                 'employee_id' => $employee->id,   // ✅ employee table ki id
                 'factory_id' => $request->factory_id,
                 'machine_id' => $machineId,
-                'variety_type' => $request->variety_type,
-                'total_length' => $request->total_length,
+
+                'variety_type' => null,
+                'total_length' => null,
+                'batch_id' => null,
+
                 'ready_production' => 0,
+                'waste_production' => 0,
+                'remaining' => 0,
 
                 'shift_start' => $employee->shift_starttime,
                 'shift_end'   => $employee->shift_endtime,
 
-                'remaining' => $request->total_length,
+                'status' => 1,
             ]);
         }
 

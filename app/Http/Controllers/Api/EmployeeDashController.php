@@ -143,13 +143,29 @@ class EmployeeDashController extends Controller
         return response()->json(['message' => 'No production found'], 404);
     }
 
-    // ✅ Sirf isi batch ka sum
+    if (!$production->batch_id) {
+        return response()->json([
+            'message' => 'No production batch assigned to this machine yet. Ask owner to assign a batch first.',
+        ], 422);
+    }
+
+    // ✅ Sirf isi batch ka sum — is employee ka apna contribution
     $totalReadyProduction = Production::where('machine_id', $id)
         ->where('employee_id', $employee->id)
         ->where('batch_id', $production->batch_id)
         ->sum('ready_production');
 
-    $remaining = $production->remaining;
+    // ✅ Remaining ab SHARED hai — is batch ki DONO shift-employees ki total ready+waste
+    //    machine ke total_length se nikaali jati hai (stale per-row 'remaining' field trust nahi karte)
+    $batchReadyTotal = Production::where('machine_id', $id)
+        ->where('batch_id', $production->batch_id)
+        ->sum('ready_production');
+
+    $batchWasteTotal = Production::where('machine_id', $id)
+        ->where('batch_id', $production->batch_id)
+        ->sum('waste_production');
+
+    $remaining = max(0, $production->total_length - ($batchReadyTotal + $batchWasteTotal));
    $canAddProduction = $remaining > 0;
 
     $dailyProduction = Production::where('machine_id', $id)

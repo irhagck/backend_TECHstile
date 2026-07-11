@@ -34,8 +34,6 @@ class ProductionController extends Controller
         'machine_id' => 'required|integer',
         'user_id' => 'required|integer', // frontend se AuthService.userId aayega
         'factory_id' => 'required|integer',
-        'variety_type' => 'required|string',
-        'total_length' => 'required|numeric',
         'ready_production' => 'required|numeric',
         'waste_production' => 'required|numeric',
     ]);
@@ -64,30 +62,51 @@ class ProductionController extends Controller
             'message' => "You can only submit production during your shift ({$employee->shift_starttime} - {$employee->shift_endtime})",
         ], 403);
     }
-       $lastProduction = Production::where('machine_id', $request->machine_id)
-    ->latest()
-    ->first();
 
-$batchId = $lastProduction?->batch_id;
+    // ✅ Is employee ki is machine par apni khud ki latest row — yehi uska "current batch" batati hai
+    //    (variety_type/total_length/batch_id client se nahi, isi row se aate hain — source of truth)
+    $ownLatest = Production::where('machine_id', $request->machine_id)
+        ->where('employee_id', $employee->id)
+        ->latest()
+        ->first();
 
-// ✅ manager_id ab poori factory se dhoondo 
-$managerId = Production::where('factory_id', $request->factory_id)
-    ->whereNotNull('manager_id')
-    ->latest()
-    ->value('manager_id');
+    if (!$ownLatest || !$ownLatest->batch_id) {
+        return response()->json([
+            'message' => 'No production batch assigned to this machine yet. Ask owner to assign a batch first.',
+        ], 422);
+    }
 
-        $previousRemaining = $lastProduction?->remaining ?? $request->total_length;
+    $batchId     = $ownLatest->batch_id;
+    $varietyType = $ownLatest->variety_type;
+    $totalLength = $ownLatest->total_length;
 
-        $newRemaining =
-            $previousRemaining
-            - $request->ready_production
-            - $request->waste_production;
+    // ✅ manager_id poori factory se dhoondo
+    $managerId = Production::where('factory_id', $request->factory_id)
+        ->whereNotNull('manager_id')
+        ->latest()
+        ->value('manager_id');
 
-        if ($newRemaining < 0) {
-            return response()->json([
-                "message" => "Production limit exceeded"
-            ], 400);
-        }
+    // ✅ Remaining ab is BATCH ka hai — dono shift-employees mila kar (shared), sirf is employee ka nahi
+    $readySoFar = Production::where('machine_id', $request->machine_id)
+        ->where('batch_id', $batchId)
+        ->sum('ready_production');
+
+    $wasteSoFar = Production::where('machine_id', $request->machine_id)
+        ->where('batch_id', $batchId)
+        ->sum('waste_production');
+
+    $previousRemaining = max(0, $totalLength - ($readySoFar + $wasteSoFar));
+
+    $newRemaining =
+        $previousRemaining
+        - $request->ready_production
+        - $request->waste_production;
+
+    if ($newRemaining < 0) {
+        return response()->json([
+            "message" => "Production limit exceeded — sirf $previousRemaining hi remaining hai (dono shifts mila kar)"
+        ], 400);
+    }
 
         $production = Production::create([
             'machine_id' => $request->machine_id,
@@ -96,8 +115,8 @@ $managerId = Production::where('factory_id', $request->factory_id)
             'factory_id' => $request->factory_id,
             'manager_id' => $managerId,
 
-            'variety_type' => $request->variety_type,
-            'total_length' => $request->total_length,
+            'variety_type' => $varietyType,
+            'total_length' => $totalLength,
 
             'ready_production' => $request->ready_production,
             'waste_production' => $request->waste_production,
@@ -188,46 +207,60 @@ $managerId = Production::where('factory_id', $request->factory_id)
     {
         $request->validate([
             'machine_id' => 'required|integer',
-            'employee_id' => 'required|integer',
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
         ]);
 
-        $employee = Employee::find($request->employee_id);
+        // ✅ Is machine par ab tak jitne employees assign ho chuke hain (dono shifts),
+        // un SABKO ye naya batch milta hai — batch machine ka hota hai, kisi ek employee ka nahi
+        $employeeIds = Production::where('machine_id', $request->machine_id)
+            ->whereNotNull('employee_id')
+            ->distinct()
+            ->pluck('employee_id');
 
-        if (!$employee) {
-            return response()->json(['message' => 'Employee not found'], 404);
+        if ($employeeIds->isEmpty()) {
+            return response()->json([
+                'message' => 'Is machine par pehle koi employee assign karein (Assign Machine se), phir production batch assign karein.',
+            ], 422);
         }
-
-        $last = Production::where('machine_id', $request->machine_id)
-            ->latest()
-            ->first();
 
         $batchId = 'BATCH-' . $request->machine_id . '-' . time();
 
-        Production::create([
-            'batch_id' => $batchId,
-            'machine_id' => $request->machine_id,
+        $created = [];
 
-            'employee_id' => $employee->id, // ✅ correct
+        foreach ($employeeIds as $empId) {
+            $employee = Employee::find($empId);
+            if (!$employee) continue;
 
-            'factory_id' => $last?->factory_id ?? 1,
-            'manager_id' => $last?->manager_id,
+            $last = Production::where('machine_id', $request->machine_id)
+                ->where('employee_id', $empId)
+                ->latest()
+                ->first();
 
-            'variety_type' => $request->variety_type,
-            'total_length' => $request->total_length,
+            $created[] = Production::create([
+                'batch_id' => $batchId,
+                'machine_id' => $request->machine_id,
+                'employee_id' => $employee->id,
 
-            'ready_production' => 0,
-            'remaining' => $request->total_length,
+                'factory_id' => $last?->factory_id,
+                'manager_id' => $last?->manager_id,
 
-            'shift_start' => $employee->shift_starttime,
-            'shift_end' => $employee->shift_endtime,
+                'variety_type' => $request->variety_type,
+                'total_length' => $request->total_length,
 
-            'status' => 1,
-        ]);
+                'ready_production' => 0,
+                'waste_production' => 0,
+                'remaining' => $request->total_length,
+
+                'shift_start' => $employee->shift_starttime,
+                'shift_end' => $employee->shift_endtime,
+
+                'status' => 1,
+            ]);
+        }
 
         return response()->json([
-            'message' => 'Production assigned successfully',
+            'message' => 'Production batch assigned to ' . count($created) . ' employee(s) successfully',
             'batch_id' => $batchId,
         ], 201);
     }
