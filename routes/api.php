@@ -29,6 +29,8 @@ use App\Http\Controllers\Api\NotificationController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login-email', [AuthController::class, 'email']);
+
 Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::get('/reset-password', [AuthController::class, 'resetPassword']);

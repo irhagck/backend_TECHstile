@@ -81,6 +81,73 @@ class AuthController extends Controller
             ]
         ], 200);
     }
+ public function email(Request $request)
+{
+    $request->validate([
+        'email'=> 'required|email|',
+
+    ]);
+
+    $user = User::where('email', $request->email)->first();
+
+    $token='first time user login';
+    
+    $emailUrl = url('/api/email?token=' . $token . '&email=' . urlencode($user->email));
+
+
+
+     // Inline HTML email content
+    $htmlContent = '
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>login email</title>
+    </head>
+    <body style="margin:0; padding:0; background-color:#f4f6f9; font-family: Arial, Helvetica, sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+            <tr>
+                <td align="center">
+                    <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1); overflow:hidden;">
+                        <tr>
+                            <td style="background-color:#4f46e5; padding:25px; text-align:center;">
+                                <h1 style="color:#ffffff; margin:0; font-size:22px;">login Request</h1>
+                            </td>
+                        </tr>
+                        <div style="text-align:center; margin:30px 0;">
+                           
+                        </div>
+                        <p style="color:#999999; font-size:13px; line-height:1.5;">
+                          welcome to irha textile factory. copy and paste this link into your browser:
+                        </p>
+                                
+                        
+                        
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>';
+
+    // Send the mail using inline HTML
+    Mail::html($htmlContent, function ($message) use ($user) {
+        $message->to($user->email)
+                ->subject('login email');
+    });
+
+    return response()->json([
+        'message' => 'login email.',
+    ]);
+
+
+
+    
+
+
+
+}
+
 
  public function forgotPassword(Request $request)
 {

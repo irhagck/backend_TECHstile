@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\Factory;
 use App\Models\Machine;
 use App\Models\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class ProductionController extends Controller
 {
@@ -237,7 +238,7 @@ class ProductionController extends Controller
                 ->latest()
                 ->first();
 
-            $created[] = Production::create([
+            $production = Production::create([
                 'batch_id' => $batchId,
                 'machine_id' => $request->machine_id,
                 'employee_id' => $employee->id,
@@ -257,6 +258,18 @@ class ProductionController extends Controller
 
                 'status' => 1,
             ]);
+
+            $created[] = $production;   // 👈 append to the array (for count() later)
+
+             $user_Name = User::whereId($employee->user_id)->first();
+             Notification::create([
+                    'user_id'       => $employee->user_id,
+                    'production_id' => $production->id,
+                    'sender_id'     => Auth::user()->id,
+                    'title'         => 'New Production assigned',
+                    'message'       => "$user_Name->name assigned production by ".Auth::user()->name,
+                    'type'          => 'production_assigned',
+                ]);
         }
 
         return response()->json([
