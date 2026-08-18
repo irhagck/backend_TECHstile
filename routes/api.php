@@ -268,6 +268,7 @@ Route::put(
 // Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
 //assign production to employee using unique batch_id
 Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
+Route::get('payments/view-payments/{factoryId}', [ProductionController::class, 'viewPayments']);
 //employee history route
 Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
 

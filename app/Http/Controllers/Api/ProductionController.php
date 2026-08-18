@@ -80,6 +80,8 @@ class ProductionController extends Controller
     $batchId     = $ownLatest->batch_id;
     $varietyType = $ownLatest->variety_type;
     $totalLength = $ownLatest->total_length;
+     
+
 
     // ✅ manager_id poori factory se dhoondo
     $managerId = Production::where('factory_id', $request->factory_id)
@@ -202,7 +204,28 @@ class ProductionController extends Controller
             'message' => 'Production deleted successfully'
         ]);
     }
+ 
+    // GET /api/payments/view-payments/{factoryId}
+    
+    public function viewPayments($factoryId)
+    {
+        $batches = Production::where('factory_id', $factoryId)
+            ->whereNotNull('batch_id')
+            ->selectRaw('batch_id, MAX(total_length) as total_length, MAX(amount_per_meter) as amount_per_meter')
+            ->groupBy('batch_id')
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'batch_id'         => $row->batch_id,
+                    'total_length'     => (float) $row->total_length,
+                    'amount_per_meter' => (float) $row->amount_per_meter,
+                ];
+            });
 
+        return response()->json([
+            'data' => $batches,
+        ]);
+    }
     // 9. Assign production (FIXED)
     public function assignProduction(Request $request)
     {
@@ -210,6 +233,7 @@ class ProductionController extends Controller
             'machine_id' => 'required|integer',
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
+            'amount_per_meter' => 'required|numeric',
         ]);
 
         // ✅ Is machine par ab tak jitne employees assign ho chuke hain (dono shifts),
@@ -228,6 +252,7 @@ class ProductionController extends Controller
         $batchId = 'BATCH-' . $request->machine_id . '-' . time();
 
         $created = [];
+        info($request);
 
         foreach ($employeeIds as $empId) {
             $employee = Employee::find($empId);
@@ -248,6 +273,7 @@ class ProductionController extends Controller
 
                 'variety_type' => $request->variety_type,
                 'total_length' => $request->total_length,
+                'amount_per_meter' => $request->amount_per_meter,
 
                 'ready_production' => 0,
                 'waste_production' => 0,

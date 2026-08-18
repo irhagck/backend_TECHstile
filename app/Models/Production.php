@@ -10,6 +10,7 @@ class Production extends Model
         'batch_id',
         'variety_type',
         'total_length',
+        'amount_per_meter',
         'ready_production',
         'waste_production',
         'remaining',
