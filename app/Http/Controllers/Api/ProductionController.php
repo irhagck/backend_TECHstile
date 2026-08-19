@@ -209,21 +209,34 @@ class ProductionController extends Controller
     
     public function viewPayments($factoryId)
     {
-        $batches = Production::where('factory_id', $factoryId)
-            ->whereNotNull('batch_id')
-            ->selectRaw('batch_id, MAX(total_length) as total_length, MAX(amount_per_meter) as amount_per_meter')
-            ->groupBy('batch_id')
-            ->get()
-            ->map(function ($row) {
-                return [
-                    'batch_id'         => $row->batch_id,
-                    'total_length'     => (float) $row->total_length,
-                    'amount_per_meter' => (float) $row->amount_per_meter,
-                ];
-            });
+      $variety_type = Production::where('factory_id', $factoryId)
+        ->whereNotNull('variety_type')
+        ->selectRaw('variety_type, MAX(total_length) as total_length, MAX(amount_per_meter) as amount_per_meter, MAX(employee_id) as employee_id')
+        ->groupBy('variety_type')
+        ->get()
+        ->map(function ($row) {
+            // ✅ employee_id ki base par employees table se record,
+            // phir uske user_id ki base par users table se employee ka naam nikalna
+            $employeeName = null;
+            if ($row->employee_id) {
+                $employee = Employee::find($row->employee_id);
+                if ($employee) {
+                    $user = User::find($employee->user_id);
+                    $employeeName = $user?->name;
+                }
+            }
+
+            return [
+                'variety_type'         => $row->variety_type,
+                'total_length'     => (float) $row->total_length,
+                'amount_per_meter' => (float) $row->amount_per_meter,
+                'select_days' => (string) $row->select_days,
+                'employee_name' => $employeeName,
+            ];
+        });
 
         return response()->json([
-            'data' => $batches,
+            'data' => $variety_type,
         ]);
     }
     // 9. Assign production (FIXED)
@@ -234,6 +247,7 @@ class ProductionController extends Controller
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
             'amount_per_meter' => 'required|numeric',
+            'select_days' => 'required|string',
         ]);
 
         // ✅ Is machine par ab tak jitne employees assign ho chuke hain (dono shifts),
@@ -274,6 +288,7 @@ class ProductionController extends Controller
                 'variety_type' => $request->variety_type,
                 'total_length' => $request->total_length,
                 'amount_per_meter' => $request->amount_per_meter,
+                'select_days' => $request->select_days,
 
                 'ready_production' => 0,
                 'waste_production' => 0,
