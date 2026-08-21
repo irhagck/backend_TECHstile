@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ApproveProductionController;
 use App\Http\Controllers\Api\FactoryUsersController;
 use App\Http\Controllers\Api\ManagerSettingController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -270,6 +271,14 @@ Route::put(
 Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
 Route::get('payments/view-payments/{factoryId}', [ProductionController::class, 'viewPayments']);
 Route::post('payments/add-payments/{factoryId}', [PaymentController::class, 'store']);
+
+
+//Payments
+Route::get('/payments', [PaymentController::class, 'index']);          // list (optional ?factory_id=)
+Route::post('/payments', [PaymentController::class, 'store']);          // ✅ ye wala chahiye
+Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+Route::put('/payments/{payment}', [PaymentController::class, 'update']);
+Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
 
 //employee history route
 Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');

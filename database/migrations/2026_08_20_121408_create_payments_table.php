@@ -13,7 +13,24 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->timestamps();
+
+            $table->decimal('amount_paid', 12, 2);
+
+            $table->foreignId('employee_id')
+                ->constrained('employees')
+                ->onDelete('cascade');
+
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->onDelete('cascade');
+
+            // ✅ NEW: kis production/batch ke liye ye payment hui
+            $table->foreignId('production_id')
+                ->nullable()
+                ->constrained('productions')
+                ->onDelete('set null');
+
+            $table->timestamps(); // ✅ created_at + updated_at dono is se ban jate hain
         });
     }
 
