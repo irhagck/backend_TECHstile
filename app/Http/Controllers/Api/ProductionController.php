@@ -207,36 +207,74 @@ class ProductionController extends Controller
  
     // GET /api/payments/view-payments/{factoryId}
     
+
+
     public function viewPayments($factoryId)
     {
-      $variety_type = Production::where('factory_id', $factoryId)
-        ->whereNotNull('variety_type')
-        ->selectRaw('variety_type, MAX(total_length) as total_length, MAX(amount_per_meter) as amount_per_meter, MAX(employee_id) as employee_id')
-        ->groupBy('variety_type')
-        ->get()
-        ->map(function ($row) {
-            // ✅ employee_id ki base par employees table se record,
-            // phir uske user_id ki base par users table se employee ka naam nikalna
+        $factory = Factory::find($factoryId);
+        $factoryName = $factory?->name;
+
+        $managerName = null;
+        if ($factory && $factory->manager_id) {
+            $manager = User::find($factory->manager_id);
+            $managerName = $manager?->name;
+        }
+
+        $records = Production::where('factory_id', $factoryId)
+            ->whereNotNull('employee_id')
+            ->orderBy('employee_id')
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Fetch all machine names in a single query (avoids N+1 queries)
+        $machineIds = $records->pluck('machine_id')->filter()->unique();
+        $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
+
+        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use ($machines, $factoryName, $managerName) {
+            $employee = Employee::find($employeeId);
             $employeeName = null;
-            if ($row->employee_id) {
-                $employee = Employee::find($row->employee_id);
-                if ($employee) {
-                    $user = User::find($employee->user_id);
-                    $employeeName = $user?->name;
-                }
+            if ($employee) {
+                $user = User::find($employee->user_id);
+                $employeeName = $user?->name;
             }
 
+            $productions = $rows->map(function ($row) use ($machines) {
+                $totalLength = (float) $row->total_length;
+                $rate = (float) ($row->amount_per_meter ?? 0);
+                $ready = (float) $row->ready_production;
+                $waste = (float) $row->waste_production;
+
+                return [
+                    'production_id'        => $row->id,
+                    'batch_id'             => $row->batch_id,
+                    'variety_type'         => $row->variety_type,
+                    'total_length'         => $totalLength,
+                    'ready_production'     => (int) $row->ready_production,
+                    'waste_production'     => (float) $row->waste_production,
+                    'remaining_production' => $totalLength - $ready - $waste, // NEW
+                    'machine_name'         => $machines[$row->machine_id] ?? null, // NEW
+                    'amount_per_meter'     => $rate,
+                    'amount'               => $totalLength * $rate,
+                    'select_days'          => $row->select_days,
+                    'shift_start'          => $row->shift_start,
+                    'shift_end'            => $row->shift_end,
+                    'created_at'           => $row->created_at,
+                ];
+            })->values();
+
             return [
-                'variety_type'         => $row->variety_type,
-                'total_length'     => (float) $row->total_length,
-                'amount_per_meter' => (float) $row->amount_per_meter,
-                'select_days' => (string) $row->select_days,
-                'employee_name' => $employeeName,
+                'employee_id'    => (int) $employeeId,
+                'employee_name'  => $employeeName,
+                'factory_name'   => $factoryName,   // NEW
+                'manager_name'   => $managerName,   // NEW
+                'total_amount'   => $productions->sum('amount'),
+                'total_length'   => $productions->sum('total_length'),
+                'productions'    => $productions,
             ];
-        });
+        })->values();
 
         return response()->json([
-            'data' => $variety_type,
+            'data' => $grouped,
         ]);
     }
     // 9. Assign production (FIXED)
