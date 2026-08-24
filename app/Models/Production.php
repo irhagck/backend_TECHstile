@@ -11,6 +11,7 @@ class Production extends Model
         'variety_type',
         'total_length',
         'amount_per_meter',
+        'select_days',
         'ready_production',
         'waste_production',
         'remaining',

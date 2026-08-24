@@ -199,23 +199,74 @@ class ProductionController extends Controller
  
     // View payments for a factory (grouped by batch_id)
     
+
+
     public function viewPayments($factoryId)
     {
-        $batches = Production::where('factory_id', $factoryId)
-            ->whereNotNull('batch_id')
-            ->selectRaw('batch_id, MAX(total_length) as total_length, MAX(amount_per_meter) as amount_per_meter')
-            ->groupBy('batch_id')
-            ->get()
-            ->map(function ($row) {
+        $factory = Factory::find($factoryId);
+        $factoryName = $factory?->name;
+
+        $managerName = null;
+        if ($factory && $factory->manager_id) {
+            $manager = User::find($factory->manager_id);
+            $managerName = $manager?->name;
+        }
+
+        $records = Production::where('factory_id', $factoryId)
+            ->whereNotNull('employee_id')
+            ->orderBy('employee_id')
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Fetch all machine names in a single query (avoids N+1 queries)
+        $machineIds = $records->pluck('machine_id')->filter()->unique();
+        $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
+
+        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use ($machines, $factoryName, $managerName) {
+            $employee = Employee::find($employeeId);
+            $employeeName = null;
+            if ($employee) {
+                $user = User::find($employee->user_id);
+                $employeeName = $user?->name;
+            }
+
+            $productions = $rows->map(function ($row) use ($machines) {
+                $totalLength = (float) $row->total_length;
+                $rate = (float) ($row->amount_per_meter ?? 0);
+                $ready = (float) $row->ready_production;
+                $waste = (float) $row->waste_production;
+
                 return [
-                    'batch_id'         => $row->batch_id,
-                    'total_length'     => (float) $row->total_length,
-                    'amount_per_meter' => (float) $row->amount_per_meter,
+                    'production_id'        => $row->id,
+                    'batch_id'             => $row->batch_id,
+                    'variety_type'         => $row->variety_type,
+                    'total_length'         => $totalLength,
+                    'ready_production'     => (int) $row->ready_production,
+                    'waste_production'     => (float) $row->waste_production,
+                    'remaining_production' => $totalLength - $ready - $waste, // NEW
+                    'machine_name'         => $machines[$row->machine_id] ?? null, // NEW
+                    'amount_per_meter'     => $rate,
+                    'amount'               => $totalLength * $rate,
+                    'select_days'          => $row->select_days,
+                    'shift_start'          => $row->shift_start,
+                    'shift_end'            => $row->shift_end,
+                    'created_at'           => $row->created_at,
                 ];
-            });
+            })->values();
+
+            return [
+                'employee_id'    => (int) $employeeId,
+                'employee_name'  => $employeeName,
+                'factory_name'   => $factoryName,   // NEW
+                'manager_name'   => $managerName,   // NEW
+                'total_amount'   => $productions->sum('amount'),
+                'total_length'   => $productions->sum('total_length'),
+                'productions'    => $productions,
+            ];
+        })->values();
 
         return response()->json([
-            'data' => $batches,
+            'data' => $grouped,
         ]);
     }
     // Assign production
@@ -226,6 +277,7 @@ class ProductionController extends Controller
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
             'amount_per_meter' => 'required|numeric',
+            'select_days' => 'required|string',
         ]);
 
         // assign batch to all employes that work on this machine 
@@ -265,6 +317,7 @@ class ProductionController extends Controller
                 'variety_type' => $request->variety_type,
                 'total_length' => $request->total_length,
                 'amount_per_meter' => $request->amount_per_meter,
+                'select_days' => $request->select_days,
 
                 'ready_production' => 0,
                 'waste_production' => 0,
