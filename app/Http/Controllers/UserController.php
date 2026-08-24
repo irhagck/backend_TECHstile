@@ -21,7 +21,7 @@ class UserController extends Controller
 
 public function employees()
 {
-    // Sirf wohe users jo employees table mein bhi hain
+    // only that users which is in employees table
     $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
 
     $users = User::role('employee')
@@ -33,7 +33,7 @@ public function employees()
         'data' => $users
     ]);
 }
-    // ✅ 1. Show All Users
+    // Show All Users
    public function index()
 {
     $users = User::with('roles')->get();
@@ -44,7 +44,7 @@ public function employees()
     ], 200);
 }
 
-    // ✅ 2. Add User
+    // Add User
     public function store(Request $request)
     {
         $request->validate([
@@ -81,7 +81,7 @@ public function employees()
         ], 201);
     }
 
-    // ✅ 3. Get Single User (Edit)
+    //Get Single User (Edit)
     public function edit($id)
     {
         $user = User::find($id);
@@ -116,8 +116,8 @@ public function update(Request $request, $id)
         'phone_no'         => 'sometimes|string|max:20',
         'cnic'             => 'sometimes|string|max:20|unique:users,cnic,' . $id,
         'address'          => 'nullable|string',
-        // 'pic'              => 'nullable|string',
-        'role'             => 'sometimes|string|exists:roles,name', // ✅ validate
+    
+        'role'             => 'sometimes|string|exists:roles,name', 
         'employee_details' => 'nullable|string',
     ]);
 
@@ -126,9 +126,9 @@ public function update(Request $request, $id)
     $user->phone_no         = $request->phone_no         ?? $user->phone_no;
     $user->cnic             = $request->cnic             ?? $user->cnic;
     $user->address          = $request->address          ?? $user->address;
-    // $user->pic              = $request->pic              ?? $user->pic;
+  
     $user->employee_details = $request->employee_details ?? $user->employee_details;
-    // ✅ Spatie se role assign karo
+    //  Assign role from Spatie 
     if ($request->filled('role')) {
         $user->syncRoles([$request->role]);
     }
@@ -146,7 +146,7 @@ public function update(Request $request, $id)
     ], 200);
 }
 
-    // ✅ 5. Delete User
+    // Delete User
     public function destroy($id)
     {
         $user = User::find($id);
@@ -167,7 +167,7 @@ public function update(Request $request, $id)
     }
     public function employeesInTable()
 {
-    // Sirf wohe users jo employees table mein bhi hain
+    // only that users that is occure in employees table
     $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
 
     $users = User::role('employee')

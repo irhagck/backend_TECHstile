@@ -10,7 +10,7 @@ use Spatie\Permission\Models\Role;
 
 class PermissionController extends Controller
 {
-    // 1. Saari Permissions fetch karein
+    // get all permissions
     public function getAllPermissions() {
         return response()->json([
             'status' => true,
@@ -18,9 +18,8 @@ class PermissionController extends Controller
         ]);
     }
 
-    // 2. Kisi khas Role ki permissions fetch karein
+    // get specific role permission
     public function getRolePermissions($roleId) {
-        // findById ki jagah find use karein jo zyada reliable hai
         $role = Role::find($roleId); 
         
         if (!$role) {
@@ -33,9 +32,9 @@ class PermissionController extends Controller
         ]);
     }
 
-    // 3. Role ko Permissions assign/sync karein
+    // Assign permision to role
     public function syncPermissions(Request $request) {
-        // Validation lazmi karein taake error na aaye
+        // Validation 
         $request->validate([
             'role_id' => 'required',
             'permissions' => 'required|array'

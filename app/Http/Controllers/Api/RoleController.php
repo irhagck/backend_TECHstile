@@ -10,14 +10,14 @@ use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
-    // 1. All Roles
+    //  All Roles
     public function index()
     {
         $roles = Role::where('guard_name', 'web')->with('permissions')->get();
         return response()->json(['status' => true, 'data' => $roles], 200);
     }
 
-    // 2. Add Role
+    // Add Role
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -38,7 +38,7 @@ class RoleController extends Controller
         return response()->json(['status' => true, 'message' => 'Role created', 'data' => $role], 200);
     }
 
-    // 3. Show Role
+    // Show Role
     public function show($id)
     {
         $role = Role::where('id', $id)->where('guard_name', 'web')->with('permissions')->first();
@@ -50,10 +50,10 @@ class RoleController extends Controller
         return response()->json(['status' => true, 'data' => $role], 200);
     }
 
-    // 4. Update Role
+    // Update Role
     public function update(Request $request, $id)
     {
-        // ✅ web guard specify karo
+        // specify web guard
         $role = Role::where('id', $id)->where('guard_name', 'web')->first();
 
         if (!$role) {
@@ -79,10 +79,10 @@ class RoleController extends Controller
         return response()->json(['status' => true, 'message' => 'Role updated', 'data' => $role], 200);
     }
 
-    // 5. Delete Role
+    //Delete Role
     public function destroy($id)
     {
-        // ✅ web guard specify karo
+        
         $role = Role::where('id', $id)->where('guard_name', 'web')->first();
 
         if (!$role) {

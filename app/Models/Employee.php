@@ -16,9 +16,9 @@ class Employee extends Model
         'timestamp',
     ];
 
-    /**
-     * Get user details
-     */
+   
+      //Get user details
+    
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');

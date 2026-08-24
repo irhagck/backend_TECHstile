@@ -45,7 +45,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
         $role  = $user->roles->first()?->name;
 
-        // ✅ role ke hisaab se factory_id nikalo
+        // based on role find factory id
         $factoryId = null;
 
         if ($role === 'manager') {
@@ -139,13 +139,6 @@ class AuthController extends Controller
     return response()->json([
         'message' => 'login email.',
     ]);
-
-
-
-    
-
-
-
 }
 
 
@@ -160,7 +153,7 @@ class AuthController extends Controller
     // Generate a secure token
     $token = Str::random(64);
 
-    // Store token in password_reset_tokens table
+    // Store token in password reset tokens table
     DB::table('password_reset_tokens')->updateOrInsert(
         ['email' => $user->email],
         [
@@ -270,7 +263,7 @@ public function updatePassword(Request $request)
         ]);
     }
 
-    // Check expiry (e.g. 60 minutes)
+    // Check expiry 
     $expiresInMinutes = 60;
     if (Carbon::parse($resetRecord->created_at)->addMinutes($expiresInMinutes)->isPast()) {
         throw ValidationException::withMessages([
@@ -307,5 +300,3 @@ public function updatePassword(Request $request)
         ], 200);
     }
 }
-
-// everything is working fine

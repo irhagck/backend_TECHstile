@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Production;
 use App\Models\User;
-use App\Models\Employee;       // ← ye add karo upar
+use App\Models\Employee;       
 
 class MachineAssignmentController extends Controller
 {
-    // ✅ Naya function - employees jo table mein hain
+    // get employees that can be assigned machines (only employees with role 'employee')
     public function getAssignableEmployees()
     {
         $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
@@ -26,7 +26,7 @@ class MachineAssignmentController extends Controller
         ]);
     }
 
-    // ✅ Purana function same rahega - kuch mat chhedo
+    // assign machines to an employee (create entries in production table)
     public function assignMachines(Request $request)
     {
         $request->validate([
@@ -53,11 +53,10 @@ class MachineAssignmentController extends Controller
 
             if ($exists) continue;
 
-            // ✅ Sirf assignment banti hai — total_length/variety_type abhi NULL rahenge,
-            // "Assign Production Batch" se baad me set honge (machine ke liye shared)
+            // only make assignment if no existing production entry for this employee and machine
             Production::create([
                 'manager_id' => $request->manager_id,
-                'employee_id' => $employee->id,   // ✅ employee table ki id
+                'employee_id' => $employee->id,   
                 'factory_id' => $request->factory_id,
                 'machine_id' => $machineId,
 

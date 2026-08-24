@@ -11,9 +11,8 @@ use App\Models\User;
 
 class EmployeeController extends Controller
 {
-    /**
-     * Get all employees (optional admin use)
-     */
+    // Get all employees 
+     
     public function index()
     {
         return Employee::with('user')->get();
@@ -43,8 +42,8 @@ class EmployeeController extends Controller
             'success' => true,
             'data' => $employees->map(function ($e) {
                 return [
-                    'id' => $e->id,               // ✅ Employee table ki ID
-                    'user_id' => $e->user_id,     // Optional, agar kabhi zarurat ho
+                    'id' => $e->id,               // Employee table id
+                    'user_id' => $e->user_id,     
                     'name' => $e->user->name ?? 'Unknown',
                     'shift_starttime' => $e->shift_starttime,
                     'shift_endtime' => $e->shift_endtime,
@@ -63,10 +62,10 @@ class EmployeeController extends Controller
             'shift_endtime' => 'required',
         ]);
 
-        // ✅ pehle purana record delete karo (same user ka)
+        // first delete same user data 
         Employee::where('user_id', $request->user_id)->delete();
 
-        // ✅ phir naya record insert karo
+        // then insert new record
         $employee = Employee::create([
             'factory_id' => $request->factory_id,
             'user_id' => $request->user_id,
@@ -80,9 +79,8 @@ class EmployeeController extends Controller
             'data' => $employee
         ], 201);
     }
-    /**
-     * Get employees by factory (🔥 MAIN API YOU NEED)
-     */
+    //Get employees by factory 
+     
     public function byFactory($factoryId)
     {
         $employees = Employee::with('user')
@@ -107,9 +105,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    /**
-     * Update employee shift
-     */
+    // Update employee shift
     public function update(Request $request, $id)
     {
         $employee = Employee::findOrFail($id);
@@ -127,9 +123,8 @@ class EmployeeController extends Controller
         ]);
     }
 
-    /**
-     * Delete employee assignment
-     */
+    // Delete employee assignment
+     
     public function destroy($id)
     {
         $employee = Employee::findOrFail($id);

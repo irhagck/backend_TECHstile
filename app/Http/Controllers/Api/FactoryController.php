@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use App\Models\Employee;
 class FactoryController extends Controller
 {
-    // 1. Get all factories
+    // Get all factories
     public function index()
     {
         $factories = Factory::latest()->get();
@@ -23,7 +23,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 2. Insert factory
+    // Insert factory
     public function store(Request $request)
     {
         $request->validate([
@@ -41,7 +41,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 3. Edit (Get single factory)
+    // Edit (Get single factory)
     public function show($id)
     {
         $factory = Factory::find($id);
@@ -59,7 +59,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 4. Update factory
+    // Update factory
     public function update(Request $request, $id)
     {
         $factory = Factory::find($id);
@@ -86,7 +86,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 5. Delete factory
+    // Delete factory
     public function destroy($id)
     {
         $factory = Factory::find($id);
@@ -114,12 +114,12 @@ class FactoryController extends Controller
         return response()->json(['message' => 'Factory not found'], 404);
     }
 
-    // ✅ rejected productions (status 3 = manager rejected, 5 = owner rejected) ko exclude karo
+    //  Rejected productions (status 3 = manager rejected, 5 = owner rejected) 
     $productions = Production::where('factory_id', $id)
         ->whereNotIn('status', [3, 5])
         ->get();
 
-    // ✅ Variety ke hisaab se group karo aur ready_production sum karo
+    // Group based on variety and then add ready_production 
     $varietiesGrouped = $productions
         ->groupBy('variety_type')
         ->map(function ($group, $varietyName) {
@@ -135,7 +135,7 @@ class FactoryController extends Controller
         "status"  => true,
         "factory" => $factory,
 
-        // ✅ "ready_production" = asal ban chuki production, total_length sirf batch ka target hai
+        //ready_production = ready production, and total_length only batch base
         "today_units" => $productions
             ->where('created_at', '>=', now()->startOfDay())
             ->sum('ready_production'),
@@ -148,10 +148,10 @@ class FactoryController extends Controller
 
         "machines_count"  => Machine::where('factory_id', $id)->count(),
 
-        // ✅ Factory ke actual assigned employees ginte hain, sirf un logon ko nahi jinki production entry hui
+        //Count assigned employees, only that employee that enter production
         "employees_count" => Employee::where('factory_id', $id)->count(),
 
-        // ✅ Ab varieties grouped data hai — sirf names nahi
+        // varieties grouped with ready_production
         "varieties" => $varietiesGrouped,
     ]);
 }

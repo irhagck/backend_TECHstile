@@ -12,35 +12,51 @@ use App\Models\Production;
 use Carbon\Carbon;
 class MachineController extends Controller
 {
-    // 🔹 Show all machines
-    public function index($factoryId)
+    // Show all machines
+  public function index($factoryId)
 {
-    $machines = Machine::where(
-        'factory_id',
-        $factoryId
-    )->get();
+    // 1. Is factory ki tamam machines get karein
+    $machines = Machine::where('factory_id', $factoryId)->get();
 
-    // ✅ "Active" machine = jis par aaj (last 24 ghantay) production scan/entry hui ho
-    $activeMachineIds = Production::where('factory_id', $factoryId)
-        ->where('created_at', '>=', now()->subHours(24))
+    /*
+    |--------------------------------------------------------------------------
+    | ACTIVE MACHINES VIA ATTENDANCE & PRODUCTION
+    |--------------------------------------------------------------------------
+    | Step 1: Attendance table se pichle 24 hours mein active IN employees nikalein.
+    | Step 2: Un employees ki assigned machines Production table se get karein.
+    */
+
+    // Active Employees From Attendance (Last 24 Hours)
+    $activeEmployeeIds = \App\Models\Attendence::where('type', 'IN')
+        ->where('timestamp', '>=', now()->subHours(24)) // agar created_at use karna ho to timestamp ki jagah created_at likhein
+        ->pluck('employee_id')
+        ->unique();
+
+    // Active Machine IDs From Production Table
+    $activeMachineIds = \App\Models\Production::where('factory_id', $factoryId)
+        ->whereIn('employee_id', $activeEmployeeIds)
         ->pluck('machine_id')
         ->unique();
 
-    $machines = $machines->map(function ($m) use ($activeMachineIds) {
-        $arr = $m->toArray();
-        $arr['is_active'] = $activeMachineIds->contains($m->id);
+    /*
+    |--------------------------------------------------------------------------
+    | ADD is_active TO EVERY MACHINE
+    |--------------------------------------------------------------------------
+    */
+    $machines = $machines->map(function ($machine) use ($activeMachineIds) {
+        $arr = $machine->toArray();
+        $arr['is_active'] = $activeMachineIds->contains($machine->id);
         return $arr;
     });
 
     return response()->json([
         'status' => true,
         'data' => $machines,
-        'total_machines'  => $machines->count(),
+        'total_machines' => $machines->count(),
         'active_machines' => $activeMachineIds->count(),
     ]);
 }
-
-    // 🔹 Add machine
+    //Add machine
     public function store(Request $request)
     {
         $request->validate([
@@ -64,7 +80,7 @@ class MachineController extends Controller
         ]);
     }
 
-    // 🔹 Get single machine (for edit)
+    // Get single machine (for edit)
     public function edit($id)
     {
         $machine = Machine::find($id);
@@ -82,7 +98,7 @@ class MachineController extends Controller
         ]);
     }
 
-    // 🔹 Update machine
+    // Update machine
     public function update(Request $request, $id)
     {
         $machine = Machine::find($id);
@@ -108,7 +124,7 @@ class MachineController extends Controller
         ]);
     }
 
-    // 🔹 Delete machine
+    //Delete machine
     public function destroy($id)
     {
         $machine = Machine::find($id);
@@ -137,7 +153,7 @@ class MachineController extends Controller
             ],404);
         }
 
-        // ✅ Machine ka CURRENT/latest batch dhoondo (batch ab machine ka hai, kisi ek employee ka nahi)
+        // find current batch of this machine
         $latestRow = Production::where('machine_id', $id)
             ->whereNotNull('batch_id')
             ->latest()
