@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+
 
 
 class AuthController extends Controller
@@ -49,8 +51,8 @@ class AuthController extends Controller
         $factoryId = null;
 
         if ($role === 'manager') {
-            $factoryId = Production::where('manager_id', $user->id)
-                ->value('factory_id');
+            $factoryId = Factory::where('manager_id', $user->id)
+                ->value('id');
         } elseif ($role === 'employee') {
             $factoryId = Employee::where('user_id', $user->id)
                 ->value('factory_id');

@@ -207,6 +207,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');
         Route::put('/update_employee/{id}',  [EmployeeController::class, 'update'])->middleware('permission:edit employees');
         Route::delete('/delete_employee/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:delete employees');
+        Route::get('/{id}/earned-amount', [EmployeeController::class, 'earnedAmount']);
     });
 
     /*

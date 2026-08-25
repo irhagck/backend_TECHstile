@@ -167,6 +167,7 @@ public function managerProductions($factoryId)
     $prod = Production::with('employeedetails.user')->findOrFail($id);
 
     $prod->status = $request->action === 'approve' ? 4 : 5;
+    $prod->earned_amount = $prod->ready_production * $prod->amount_per_meter;
     $prod->save();
 
     $ownerName = $request->user()->name ?? 'Owner';

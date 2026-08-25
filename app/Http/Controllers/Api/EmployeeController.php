@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Models\Factory;
+use App\Models\Payment;
 use App\Models\User;
+use App\Models\Production;
 
 
 class EmployeeController extends Controller
@@ -22,6 +24,25 @@ class EmployeeController extends Controller
     public function factories()
     {
         return Factory::select('id','name')->get();
+    }
+
+
+    public function earnedAmount($id)
+    {
+        $employee = Employee::find($id);
+        if (!$employee) {
+            return response()->json(['message' => 'Employee not found'], 404);
+        }
+
+        $totalEarned = Production::where('employee_id', $id)->sum('earned_amount');
+        $totalPaid   = Payment::where('employee_id', $id)->sum('amount_paid');
+
+        return response()->json([
+            'employee_id'  => (int) $id,
+            'total_earned' => (float) $totalEarned,
+            'total_paid'   => (float) $totalPaid,
+            'remaining'    => (float) ($totalEarned - $totalPaid),
+        ]);
     }
 
 
