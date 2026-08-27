@@ -13,50 +13,55 @@ class NotificationController extends Controller
 
 // get user notifications
 
-public function index($userId)
+use Illuminate\Http\Request;
+
+public function index(Request $request)
 {
-    return response()->json(
-        Notification::where('user_id', $userId)
-            ->with([
-                'production.employeedetails',
-                'production.machineemploye:id,machine_name'
-            ])
-            ->latest()
-            ->get()
-    );
+    $user = $request->user();
+
+    $notifications = Notification::with([
+        'sender',
+        'user.role',
+        'production'
+    ])
+    ->whereHas('user.role', function ($query) use ($user) {
+        $query->where('id', $user->role_id);
+    })
+    ->where('user_id', $user->id)
+    ->latest()
+    ->get();
+
+    return response()->json([
+        'success' => true,
+        'notifications' => $notifications
+    ]);
 }
+
+
+
 // mark read
 
-public function read($id)
+public function read(Request $request, $id)
 {
+    $user = $request->user();
 
+    $notification = Notification::where('id', $id)
+        ->where('user_id', $user->id)
+        ->first();
 
-$notification =
-Notification::find($id);
+    if (!$notification) {
+        return response()->json([
+            'message' => 'Not found'
+        ], 404);
+    }
 
+    $notification->update([
+        'is_read' => true
+    ]);
 
-if(!$notification)
-{
-return response()->json([
-'message'=>'Not found'
-],404);
-}
-
-
-
-$notification->update([
-
-'is_read'=>true
-
-]);
-
-
-
-return response()->json([
-'success'=>true
-]);
-
-
+    return response()->json([
+        'success' => true
+    ]);
 }
 
 
