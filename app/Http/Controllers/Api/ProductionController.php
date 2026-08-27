@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Production;
+use App\Models\Payment;
 use App\Models\Attendence;
 use App\Models\User;
 use App\Models\Employee;
@@ -206,8 +207,9 @@ class ProductionController extends Controller
     }
  
     // GET /api/payments/view-payments/{factoryId}
-    public function viewPayments($factoryId)
-    {
+ // GET /api/payments/view-payments/{factoryId}
+public function viewPayments($factoryId)
+{
     $authUser = auth()->user();
 
     $factory = Factory::find($factoryId);
@@ -215,7 +217,7 @@ class ProductionController extends Controller
         return response()->json(['message' => 'Factory not found'], 404);
     }
 
-$factoryName = $factory->name;
+    $factoryName = $factory->name;
 
     $managerName = null;
     if ($factory->manager_id) {
@@ -228,7 +230,6 @@ $factoryName = $factory->name;
         // Admin: full access, no restriction
 
     } elseif ($authUser->hasRole('manager')) {
-        // Manager: sirf apni assigned factory ka data dekh sakta hai
         if ((int) $factory->manager_id !== (int) $authUser->id) {
             return response()->json([
                 'message' => 'Unauthorized: Aap sirf apni factory ke payments dekh sakte hain.'
@@ -236,7 +237,7 @@ $factoryName = $factory->name;
         }
 
     } elseif ($authUser->hasRole('employee')) {
-        // Employee: neeche filter lagega, sirf apna data milega
+        // filtered below
 
     } else {
         return response()->json(['message' => 'Unauthorized role.'], 403);
@@ -246,9 +247,9 @@ $factoryName = $factory->name;
     $recordsQuery = Production::where('factory_id', $factoryId)
         ->whereNotNull('employee_id')
         ->orderBy('employee_id')
+        ->orderBy('machine_id')
         ->orderByDesc('created_at');
 
-    // Employee ko sirf apna data dikhayen
     if ($authUser->hasRole('employee')) {
         $employee = Employee::where('user_id', $authUser->id)->first();
 
@@ -261,35 +262,57 @@ $factoryName = $factory->name;
 
     $records = $recordsQuery->get();
 
+    // Get total paid amount for each employee
+    $employeeIds = $records->pluck('employee_id')->filter()->unique();
+
+    $paidAmounts = Payment::whereIn('employee_id', $employeeIds)
+        ->selectRaw('employee_id, SUM(amount_paid) as total_paid')
+        ->groupBy('employee_id')
+        ->pluck('total_paid', 'employee_id');
+
+
     // Fetch all machine names in a single query (avoids N+1 queries)
     $machineIds = $records->pluck('machine_id')->filter()->unique();
     $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
 
-    $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use ($machines, $factoryName, $managerName) {
-        $employee = Employee::find($employeeId);
-        $employeeName = null;
-        if ($employee) {
-            $user = User::find($employee->user_id);
-            $employeeName = $user?->name;
-        }
+    $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use (
+    $machines,
+    $factoryName,
+    $managerName,
+    $paidAmounts
+) {
+    $employee = Employee::find($employeeId);
 
-        $productions = $rows->map(function ($row) use ($machines) {
+    $employeeName = null;
+
+    if ($employee) {
+        $user = User::find($employee->user_id);
+        $employeeName = $user?->name;
+    }
+
+    // ---------- machine-wise grouping ----------
+    $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
+
+        $productions = $machineRows->map(function ($row) {
             $totalLength = (float) $row->total_length;
-            $rate = (float) ($row->amount_per_meter ?? 0);
-            $ready = (float) $row->ready_production;
-            $waste = (float) $row->waste_production;
+            $rate        = (float) ($row->amount_per_meter ?? 0);
+            $ready       = (float) $row->ready_production;
+            $waste       = (float) ($row->waste_production ?? 0);
+
+            $earnedAmount = $row->earned_amount !== null
+                ? (float) $row->earned_amount
+                : $totalLength * $rate;
 
             return [
-                'production_id'        => $row->id,
+                'production_id'         => $row->id,
                 'batch_id'              => $row->batch_id,
                 'variety_type'          => $row->variety_type,
                 'total_length'          => $totalLength,
                 'ready_production'      => (int) $row->ready_production,
-                'waste_production'      => (float) $row->waste_production,
-                    'remaining_production'  => $totalLength - $ready - $waste,
-                'machine_name'          => $machines[$row->machine_id] ?? null,
+                'waste_production'      => $waste,
+                'remaining_production' => $totalLength - $ready - $waste,
                 'amount_per_meter'      => $rate,
-                'amount'                => $totalLength * $rate,
+                'amount'                => $earnedAmount,
                 'select_days'           => $row->select_days,
                 'shift_start'           => $row->shift_start,
                 'shift_end'             => $row->shift_end,
@@ -298,15 +321,44 @@ $factoryName = $factory->name;
         })->values();
 
         return [
-            'employee_id'    => (int) $employeeId,
-            'employee_name'  => $employeeName,
-            'factory_name'   => $factoryName,
-            'manager_name'   => $managerName,
-            'total_amount'   => $productions->sum('amount'),
-            'total_length'   => $productions->sum('total_length'),
-            'productions'    => $productions,
+            'machine_id'           => $machineId ? (int) $machineId : null,
+            'machine_name'         => $machines[$machineId] ?? 'Unassigned',
+            'production_count'     => $productions->count(),
+            'total_length'         => $productions->sum('total_length'),
+            'ready_production'     => $productions->sum('ready_production'),
+            'waste_production'     => $productions->sum('waste_production'),
+            'remaining_production' => $productions->sum('remaining_production'),
+            'total_amount'         => $productions->sum('amount'),
+            'productions'          => $productions,
         ];
     })->values();
+
+    // Total earned by this employee
+    $totalEarned = $machineGroups->sum('total_amount');
+
+    // Total already paid
+    $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
+
+    // Remaining payable amount
+    $remainingAmount = max(0, $totalEarned - $totalPaid);
+
+    return [
+        'employee_id'      => (int) $employeeId,
+        'employee_name'    => $employeeName,
+        'factory_name'     => $factoryName,
+        'manager_name'     => $managerName,
+
+        // Payment summary
+        'total_amount'     => $totalEarned,
+        'total_earned'     => $totalEarned,
+        'total_paid'       => $totalPaid,
+        'remaining_amount' => $remainingAmount,
+
+        'total_length'     => $machineGroups->sum('total_length'),
+        'machines'         => $machineGroups,
+    ];
+})->values();
+
 
     return response()->json([
         'data' => $grouped,

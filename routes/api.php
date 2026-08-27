@@ -69,10 +69,7 @@ Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 Route::get('notifications/{user}', [NotificationController::class, 'index']);
 Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
 Route::post('notifications/create', [NotificationController::class, 'store']);
-Route::get(
-'/notifications/unread/{userId}',
-[NotificationController::class,'unreadCount']
-);
+Route::get('/notifications/unread/{userId}',[NotificationController::class,'unreadCount']);
 
 /*
 |--------------------------------------------------------------------------
