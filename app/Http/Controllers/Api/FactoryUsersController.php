@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 class FactoryUsersController extends Controller
 {
     // get factory users (manager + employees) with active status
-   public function getUsersByFactory($factoryId)
+  public function getUsersByFactory($factoryId)
 {
     // Manager
     $managerId = Production::where('factory_id', $factoryId)
@@ -30,14 +30,20 @@ class FactoryUsersController extends Controller
     )->get();
 
     $employeeUserIds = $employees->pluck('user_id');
-  // Attendance table mein jis employee ka record hai,
-    //woh active employee hai.
 
+    /*
+    |--------------------------------------------------------------------------
+    | LAST 12 HOURS SHIFT CHECK
+    |--------------------------------------------------------------------------
+    | Pichle 12 ghante me jis employee ki 'IN' attendance lagi hai,
+    | sirf wahi active hoga (current shift employee).
+    */
     $activeEmployeeIds = \App\Models\Attendence::whereIn(
         'employee_id',
         $employees->pluck('id')
     )
         ->where('type', 'IN')
+        ->where('created_at', '>=', now()->subHours(12)) 
         ->pluck('employee_id')
         ->unique();
 
@@ -71,8 +77,7 @@ class FactoryUsersController extends Controller
 
             $arr['employee_id'] = $emp?->id;
 
-            $arr['is_active'] =
-                $activeUserIds->contains($user->id);
+            $arr['is_active'] = $activeUserIds->contains($user->id);
 
             return $arr;
         });

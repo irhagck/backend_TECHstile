@@ -26,9 +26,9 @@ class MachineController extends Controller
     | Step 2: Un employees ki assigned machines Production table se get karein.
     */
 
-    // Active Employees From Attendance (Last 24 Hours)
+    // Active Employees From Attendance (Last 12 Hours)
     $activeEmployeeIds = \App\Models\Attendence::where('type', 'IN')
-        ->where('timestamp', '>=', now()->subHours(24)) // agar created_at use karna ho to timestamp ki jagah created_at likhein
+        ->where('created_at', '>=', now()->subHours(12)) // agar created_at use karna ho to timestamp ki jagah created_at likhein
         ->pluck('employee_id')
         ->unique();
 

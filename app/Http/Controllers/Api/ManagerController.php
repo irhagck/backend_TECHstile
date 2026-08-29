@@ -130,7 +130,7 @@ class ManagerController extends Controller
 
         //  fetch active employee IDs from Attendence table duration of last 24 hours
         $activeEmployeeIds = Attendence::where('type', 'IN')
-            ->where('timestamp', '>=', now()->subHours(24))
+            ->where('created_at', '>=', now()->subHours(12))
             ->pluck('employee_id')
             ->unique();
 
@@ -164,7 +164,7 @@ class ManagerController extends Controller
 
         // fetch active employee IDs from Attendence table duration of last 24 hours
         $activeEmployeeIds = Attendence::where('type', 'IN')
-            ->where('timestamp', '>=', now()->subHours(24))
+            ->where('created_at', '>=', now()->subHours(12))
             ->pluck('employee_id')
             ->unique();
 
