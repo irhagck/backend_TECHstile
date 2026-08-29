@@ -61,7 +61,6 @@ Route::prefix('manager')->group(function () {
 Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
 
 Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
-Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
 Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
 Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 
@@ -79,6 +78,8 @@ Route::get('/notifications/unread/{userId}',[NotificationController::class,'unre
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
+    Route::post('/change-password', [ManagerSettingController::class, 'changePassword']);
+    Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
 
     // ── Manager Productions ────────────────────────────────

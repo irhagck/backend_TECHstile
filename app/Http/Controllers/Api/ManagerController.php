@@ -191,47 +191,41 @@ class ManagerController extends Controller
     }
     //manager profile
     public function profile($userId)
-{
-    $user = User::find($userId);
+    {
+        $user = User::find($userId);
 
-    if (!$user) {
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Manager not found'
+            ], 404);
+        }
+
+        $factoryId = Production::where('manager_id', $userId)->value('factory_id')
+            ?? Factory::where('manager_id', $userId)->value('id');
+
+        $totalEmployees = Employee::where('factory_id', $factoryId)->count();
+        $totalMachines  = Machine::where('factory_id', $factoryId)->count();
+        $totalProduction = (float) Production::where('factory_id', $factoryId)->sum('ready_production');
+        $factoryName    = Factory::where('id', $factoryId)->value('name');
+
         return response()->json([
-            'status' => false,
-            'message' => 'Manager not found'
-        ], 404);
+            'status' => true,
+            'data' => [
+                'id'               => $user->id,
+                'name'             => $user->name,
+                'email'            => $user->email,
+                'phone_no'         => $user->phone_no,
+                'cnic'             => $user->cnic,
+                'address'          => $user->address,
+                'pic'              => $user->pic,
+                'role'             => 'Manager',
+                'factory_id'       => $factoryId,
+                'factory_name'     => $factoryName,
+                'total_employees'  => $totalEmployees,
+                'total_machines'   => $totalMachines,
+                'total_production' => $totalProduction,
+            ]
+        ]);
     }
-
-    $factoryId = Production::where(
-        'manager_id',
-        $userId
-    )->value('factory_id');
-
-    $totalEmployees = Employee::where(
-        'factory_id',
-        $factoryId
-    )->count();
-
-    $totalProduction = Production::where(
-        'factory_id',
-        $factoryId
-    )->sum('ready_production');
-
-    $factoryName = Factory::where('id', $factoryId)->value('name');
-
-    return response()->json([
-        'status' => true,
-        'data' => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'phone_no' => $user->phone_no,
-            'address' => $user->address,
-            'pic' => $user->pic,
-            'factory_id' => $factoryId,
-            'factory_name' => $factoryName,
-            'total_employees' => $totalEmployees,
-            'total_production' => $totalProduction,
-        ]
-    ]);
-}
 }

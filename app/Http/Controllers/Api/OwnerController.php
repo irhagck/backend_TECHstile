@@ -30,15 +30,17 @@ class OwnerController extends Controller
                 'name'             => $user->name,
                 'email'            => $user->email,
                 'phone_no'         => $user->phone_no,
+                'cnic'             => $user->cnic,
                 'address'          => $user->address,
                 'pic'              => $user->pic,
+                'role'             => 'Owner',
 
                 'total_factories'  => Factory::count(),
                 'total_machines'   => Machine::count(),
-                'total_employees'  => Employee::whereHas('user', function ($q) {
-                    $q->role('employee');
+                'total_employees'  => Employee::count(),
+                'total_managers'   => User::whereHas('roles', function ($q) {
+                    $q->where('name', 'manager');
                 })->count(),
-                'total_managers'   => User::role('manager')->count(),
             ],
         ]);
     }
