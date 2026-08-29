@@ -294,31 +294,46 @@ public function viewPayments($factoryId)
     $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
 
         $productions = $machineRows->map(function ($row) {
-            $totalLength = (float) $row->total_length;
+            $totalLength = (float) ($row->total_length ?? 0);
             $rate        = (float) ($row->amount_per_meter ?? 0);
-            $ready       = (float) $row->ready_production;
+            $ready       = (float) ($row->ready_production ?? 0);
             $waste       = (float) ($row->waste_production ?? 0);
+            $status      = (int) ($row->status ?? 1);
 
-            $earnedAmount = $row->earned_amount !== null
-                ? (float) $row->earned_amount
-                : $totalLength * $rate;
+            $expectedAmount = $totalLength * $rate;
+
+            // Sirf status = 4 (Owner Approved) par earned amount count hota hai
+            $earnedAmount = 0.0;
+            if ($status === 4) {
+                if ($row->earned_amount !== null && (float)$row->earned_amount > 0) {
+                    $earnedAmount = (float) $row->earned_amount;
+                } else {
+                    $earnedAmount = $ready * $rate;
+                }
+            }
 
             return [
-                'production_id'         => $row->id,
-                'batch_id'              => $row->batch_id,
-                'variety_type'          => $row->variety_type,
-                'total_length'          => $totalLength,
-                'ready_production'      => (int) $row->ready_production,
-                'waste_production'      => $waste,
-                'remaining_production' => $totalLength - $ready - $waste,
-                'amount_per_meter'      => $rate,
-                'amount'                => $earnedAmount,
-                'select_days'           => $row->select_days,
-                'shift_start'           => $row->shift_start,
-                'shift_end'             => $row->shift_end,
-                'created_at'            => $row->created_at,
+                'production_id'        => $row->id,
+                'batch_id'             => $row->batch_id,
+                'variety_type'         => $row->variety_type,
+                'status'               => $status,
+                'total_length'         => $totalLength,
+                'ready_production'     => (int) $ready,
+                'waste_production'     => $waste,
+                'remaining_production' => max(0, $totalLength - $ready - $waste),
+                'amount_per_meter'     => $rate,
+                'expected_amount'      => $expectedAmount,
+                'earned_amount'        => $earnedAmount,
+                'amount'               => $earnedAmount, // backward compatibility
+                'select_days'          => $row->select_days,
+                'shift_start'          => $row->shift_start,
+                'shift_end'            => $row->shift_end,
+                'created_at'           => $row->created_at,
             ];
         })->values();
+
+        $expectedTotal = (float) $productions->sum('expected_amount');
+        $earnedTotal   = (float) $productions->sum('earned_amount');
 
         return [
             'machine_id'           => $machineId ? (int) $machineId : null,
@@ -328,13 +343,18 @@ public function viewPayments($factoryId)
             'ready_production'     => $productions->sum('ready_production'),
             'waste_production'     => $productions->sum('waste_production'),
             'remaining_production' => $productions->sum('remaining_production'),
-            'total_amount'         => $productions->sum('amount'),
+            'expected_amount'      => $expectedTotal,
+            'earned_amount'        => $earnedTotal,
+            'total_amount'         => $earnedTotal, // backward compatibility
             'productions'          => $productions,
         ];
     })->values();
 
-    // Total earned by this employee
-    $totalEarned = $machineGroups->sum('total_amount');
+    // Total expected for all batches of this employee
+    $totalExpected = (float) $machineGroups->sum('expected_amount');
+
+    // Total earned from approved batches of this employee
+    $totalEarned = (float) $machineGroups->sum('earned_amount');
 
     // Total already paid
     $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
@@ -349,6 +369,7 @@ public function viewPayments($factoryId)
         'manager_name'     => $managerName,
 
         // Payment summary
+        'total_expected'   => $totalExpected,
         'total_amount'     => $totalEarned,
         'total_earned'     => $totalEarned,
         'total_paid'       => $totalPaid,

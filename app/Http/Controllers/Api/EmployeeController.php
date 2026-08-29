@@ -34,14 +34,28 @@ class EmployeeController extends Controller
             return response()->json(['message' => 'Employee not found'], 404);
         }
 
-        $totalEarned = Production::where('employee_id', $id)->sum('earned_amount');
-        $totalPaid   = Payment::where('employee_id', $id)->sum('amount_paid');
+        // Sirf owner approved productions (status 4) ka earned amount calculate karo
+        $approvedProductions = Production::where('employee_id', $id)
+            ->where('status', 4)
+            ->get();
+
+        $totalEarned = 0;
+        foreach ($approvedProductions as $prod) {
+            if ($prod->earned_amount !== null && $prod->earned_amount > 0) {
+                $totalEarned += (float) $prod->earned_amount;
+            } else {
+                $totalEarned += (float) ($prod->ready_production * $prod->amount_per_meter);
+            }
+        }
+
+        $totalPaid = (float) Payment::where('employee_id', $id)->sum('amount_paid');
+        $remaining = max(0, $totalEarned - $totalPaid);
 
         return response()->json([
             'employee_id'  => (int) $id,
             'total_earned' => (float) $totalEarned,
             'total_paid'   => (float) $totalPaid,
-            'remaining'    => (float) ($totalEarned - $totalPaid),
+            'remaining'    => (float) $remaining,
         ]);
     }
 

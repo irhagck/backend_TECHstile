@@ -9,13 +9,8 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-
-
-// get user notifications
-
-use Illuminate\Http\Request;
-
-public function index(Request $request)
+    // get user notifications
+    public function index(Request $request)
 {
     $user = $request->user();
 

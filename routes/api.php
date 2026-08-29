@@ -145,8 +145,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('editfactory/{id}',    [FactoryController::class, 'show']);
         Route::put('updatefactory/{id}',  [FactoryController::class, 'update']);
         Route::delete('deletefactory/{id}', [FactoryController::class, 'destroy']);
-        Route::get('dashboard/{id}',[FactoryController::class,'dashboard']);
-});
+    });
 
     /*
     |---------------------------
