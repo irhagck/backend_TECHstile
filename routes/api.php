@@ -56,6 +56,7 @@ Route::prefix('manager')->group(function () {
     Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
     Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
     Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
+    Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
 });
 
 Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
@@ -65,10 +66,9 @@ Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
 Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 
 // NOTIFICATION
-Route::get('notifications/{user}', [NotificationController::class, 'index']);
+Route::get('notifications/{user?}', [NotificationController::class, 'index']);
 Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
-Route::post('notifications/create', [NotificationController::class, 'store']);
-Route::get('/notifications/unread/{userId}',[NotificationController::class,'unreadCount']);
+Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
 
 /*
 |--------------------------------------------------------------------------
