@@ -10,6 +10,7 @@ use App\Models\Machine;
 use Carbon\Carbon;
 use App\Models\Attendence;
 use App\Models\User;
+use App\Models\Factory;
 class EmployeeDashController extends Controller
 {
 
@@ -298,6 +299,8 @@ public function profile(Request $request, $id)
         $totalMachines        = $data->count();
         $totalProduction      = $data->sum('total_length');
         $totalReadyProduction = $data->sum('ready_production');
+        $factoryName          = $factoryId ? Factory::where('id', $factoryId)->value('name') : null;
+        $managerName          = $managerId ? User::where('id', $managerId)->value('name') : null;
         $attendanceCount      = Attendence::where('employee_id', $employee->id)->count();
     }
 
@@ -305,6 +308,11 @@ public function profile(Request $request, $id)
         'success' => true,
         'data' => [
             ...$user->toArray(),
+            'employee_id'            => $employee?->id,
+            'factory_id'             => $employee?->factory_id ?? ($factoryId ?? null),
+            'factory_name'           => $factoryName ?? null,
+            'manager_name'           => $managerName ?? null,
+            'role'                   => 'Employee',
             'total_machines'         => $totalMachines,
             'total_production'       => $totalProduction,
             'total_ready_production' => $totalReadyProduction,
@@ -314,9 +322,12 @@ public function profile(Request $request, $id)
     ]);
 }
 // employee history functions
-     public function employeeHistory($id)
+public function employeeHistory($id)
 {
     $employee = Employee::where('user_id', $id)->first();
+    if (!$employee) {
+        $employee = Employee::find($id);
+    }
 
     if (!$employee) {
         return response()->json([
@@ -324,46 +335,17 @@ public function profile(Request $request, $id)
         ], 404);
     }
 
-    // Latest assignment
-    $lastProduction = Production::where(
-        'employee_id',
-        $employee->id
-    )
-    ->latest()
-    ->first();
+    // Base query for this employee
+    $baseQuery = Production::where('employee_id', $employee->id);
 
-    if (!$lastProduction) {
-        return response()->json([
-            'pending'   => [],
-            'completed' => [],
-            'daily'     => 0,
-            'weekly'    => 0,
-            'monthly'   => 0,
-        ]);
-    }
-
-    $factoryId = $lastProduction->factory_id;
-    $managerId = $lastProduction->manager_id;
-
-   
-    // PENDING (Status 1)
-   
-
-    $pending = Production::with('machine')
-        ->where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('manager_id', $managerId)
-        ->where('status', 1)
+    $pending = (clone $baseQuery)->with('machine')
+        ->whereIn('status', [1, 2])
         ->latest()
         ->get();
 
-    // COMPLETED (Status 4)
-
-    $approved = Production::with('machine')
-        ->where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('manager_id', $managerId)
+    $approved = (clone $baseQuery)->with('machine')
         ->where('status', 4)
+        ->latest()
         ->get();
 
     $completed = $approved
@@ -373,35 +355,25 @@ public function profile(Request $request, $id)
                 . $item->batch_id;
         })
         ->map(function ($group) {
-
             $first = $group->first();
-
             return [
                 'machine_id'       => $first->machine_id,
                 'machine_type'     => $first->machine?->machine_type ?? '',
                 'variety_type'     => $first->variety_type,
                 'batch_id'         => $first->batch_id,
-                'ready_production' => $group->sum('ready_production'),
-                'total_length'     => $first->total_length,
+                'ready_production' => (float) $group->sum('ready_production'),
+                'total_length'     => (float) $first->total_length,
                 'status'           => $first->status,
             ];
         })
         ->values();
 
-    // DAILY
-
-    $daily = Production::where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('manager_id', $managerId)
+    $daily = (clone $baseQuery)
         ->where('status', 4)
         ->whereDate('created_at', today())
         ->sum('ready_production');
 
-    // WEEKLY
-
-    $weekly = Production::where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('manager_id', $managerId)
+    $weekly = (clone $baseQuery)
         ->where('status', 4)
         ->whereBetween('created_at', [
             now()->startOfWeek(),
@@ -409,29 +381,19 @@ public function profile(Request $request, $id)
         ])
         ->sum('ready_production');
 
-    // MONTHLY
-
-    $monthly = Production::where('employee_id', $employee->id)
-        ->where('factory_id', $factoryId)
-        ->where('manager_id', $managerId)
+    $monthly = (clone $baseQuery)
         ->where('status', 4)
         ->whereMonth('created_at', now()->month)
         ->whereYear('created_at', now()->year)
         ->sum('ready_production');
 
     return response()->json([
-        'factory_id' => $factoryId,
-        'manager_id' => $managerId,
-
-        'pending' => $pending,
-
-        'completed' => $completed,
-
-        'daily' => $daily,
-
-        'weekly' => $weekly,
-
-        'monthly' => $monthly,
+        'employee_id' => $employee->id,
+        'pending'     => $pending,
+        'completed'   => $completed,
+        'daily'       => (float) $daily,
+        'weekly'      => (float) $weekly,
+        'monthly'     => (float) $monthly,
     ]);
 }
 }

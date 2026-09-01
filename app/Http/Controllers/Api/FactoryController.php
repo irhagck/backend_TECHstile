@@ -106,13 +106,13 @@ class FactoryController extends Controller
         ]);
     }
 
-    public function dashboard($id)
-{
-    $factory = Factory::find($id);
+    public function dashboard(Request $request, $id)
+    {
+        $factory = Factory::find($id);
 
-    if (!$factory) {
-        return response()->json(['message' => 'Factory not found'], 404);
-    }
+        if (!$factory) {
+            return response()->json(['message' => 'Factory not found'], 404);
+        }
 
     //  Rejected productions (status 3 = manager rejected, 5 = owner rejected) 
     $productions = Production::where('factory_id', $id)

@@ -163,7 +163,13 @@ public function managerProductions($factoryId)
 
     $prod = Production::with('employeedetails.user')->findOrFail($id);
 
-    $prod->status = $request->action === 'approve' ? 4 : 5;
+    if ($request->action === 'approve') {
+        $prod->status = 4;
+        $prod->earned_amount = $prod->ready_production * $prod->amount_per_meter;
+    } else {
+        $prod->status = 5;
+        $prod->earned_amount = 0;
+    }
     $prod->save();
 
     $ownerName = $request->user()->name ?? 'Owner';

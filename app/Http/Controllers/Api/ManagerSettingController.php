@@ -29,35 +29,35 @@ class ManagerSettingController extends Controller
         ]);
     }
 
-    public function changePassword(
-        Request $request
-    )
+    public function changePassword(Request $request)
     {
-        $user = auth()->user();
+        $request->validate([
+            'current_password' => 'required',
+            'new_password'     => 'required|min:6',
+        ]);
 
-        if (
-            !Hash::check(
-                $request->current_password,
-                $user->password
-            )
-        ) {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+
+        if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' =>
-                    'Current password incorrect'
+                'message' => 'Unauthenticated user'
+            ], 401);
+        }
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password incorrect'
             ], 400);
         }
 
-        $user->password = Hash::make(
-            $request->new_password
-        );
-
+        $user->password = Hash::make($request->new_password);
         $user->save();
 
         return response()->json([
             'success' => true,
-            'message' =>
-                'Password changed successfully'
+            'message' => 'Password changed successfully'
         ]);
     }
 }

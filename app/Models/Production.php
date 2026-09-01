@@ -22,6 +22,7 @@ class Production extends Model
         'shift_start',
         'shift_end',
         'status',
+        'earned_amount',
     ];
     public function factory() {
     return $this->belongsTo(Factory::class);

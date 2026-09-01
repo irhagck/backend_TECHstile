@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Production;
+use App\Models\Payment;
 use App\Models\Attendence;
 use App\Models\User;
 use App\Models\Employee;
@@ -197,79 +198,186 @@ class ProductionController extends Controller
         ]);
     }
  
-    // View payments for a factory (grouped by batch_id)
-    
+    // GET /api/payments/view-payments/{factoryId}
+ // GET /api/payments/view-payments/{factoryId}
+public function viewPayments($factoryId)
+{
+    $authUser = auth()->user();
 
+    $factory = Factory::find($factoryId);
+    if (!$factory) {
+        return response()->json(['message' => 'Factory not found'], 404);
+    }
 
-    public function viewPayments($factoryId)
-    {
-        $factory = Factory::find($factoryId);
-        $factoryName = $factory?->name;
+    $factoryName = $factory->name;
 
-        $managerName = null;
-        if ($factory && $factory->manager_id) {
-            $manager = User::find($factory->manager_id);
-            $managerName = $manager?->name;
+    $managerName = null;
+    if ($factory->manager_id) {
+        $manager = User::find($factory->manager_id);
+        $managerName = $manager?->name;
+    }
+
+    // ---------- ROLE BASED ACCESS CONTROL (Spatie) ----------
+    if ($authUser->hasRole('owner')) {
+        // Admin: full access, no restriction
+
+    } elseif ($authUser->hasRole('manager')) {
+        if ((int) $factory->manager_id !== (int) $authUser->id) {
+            return response()->json([
+                'message' => 'Unauthorized: Aap sirf apni factory ke payments dekh sakte hain.'
+            ], 403);
         }
 
-        $records = Production::where('factory_id', $factoryId)
-            ->whereNotNull('employee_id')
-            ->orderBy('employee_id')
-            ->orderByDesc('created_at')
-            ->get();
+    } elseif ($authUser->hasRole('employee')) {
+        // filtered below
 
-        // Fetch all machine names in a single query (avoids N+1 queries)
-        $machineIds = $records->pluck('machine_id')->filter()->unique();
-        $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
+    } else {
+        return response()->json(['message' => 'Unauthorized role.'], 403);
+    }
+    // -----------------------------------------------------------
 
-        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use ($machines, $factoryName, $managerName) {
-            $employee = Employee::find($employeeId);
-            $employeeName = null;
-            if ($employee) {
-                $user = User::find($employee->user_id);
-                $employeeName = $user?->name;
+    $recordsQuery = Production::where('factory_id', $factoryId)
+        ->whereNotNull('employee_id')
+        ->orderBy('employee_id')
+        ->orderBy('machine_id')
+        ->orderByDesc('created_at');
+
+    if ($authUser->hasRole('employee')) {
+        $employee = Employee::where('user_id', $authUser->id)->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'Employee profile not found.'], 404);
+        }
+
+        $recordsQuery->where('employee_id', $employee->id);
+    }
+
+    $records = $recordsQuery->get();
+
+    // Get total paid amount for each employee
+    $employeeIds = $records->pluck('employee_id')->filter()->unique();
+
+    $paidAmounts = Payment::whereIn('employee_id', $employeeIds)
+        ->selectRaw('employee_id, SUM(amount_paid) as total_paid')
+        ->groupBy('employee_id')
+        ->pluck('total_paid', 'employee_id');
+
+
+    // Fetch all machine names in a single query (avoids N+1 queries)
+    $machineIds = $records->pluck('machine_id')->filter()->unique();
+    $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
+
+    $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use (
+    $machines,
+    $factoryName,
+    $managerName,
+    $paidAmounts
+) {
+    $employee = Employee::find($employeeId);
+
+    $employeeName = null;
+
+    if ($employee) {
+        $user = User::find($employee->user_id);
+        $employeeName = $user?->name;
+    }
+
+    // ---------- machine-wise grouping ----------
+    $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
+
+        $productions = $machineRows->map(function ($row) {
+            $totalLength = (float) ($row->total_length ?? 0);
+            $rate        = (float) ($row->amount_per_meter ?? 0);
+            $ready       = (float) ($row->ready_production ?? 0);
+            $waste       = (float) ($row->waste_production ?? 0);
+            $status      = (int) ($row->status ?? 1);
+
+            $expectedAmount = $totalLength * $rate;
+
+            // Sirf status = 4 (Owner Approved) par earned amount count hota hai
+            $earnedAmount = 0.0;
+            if ($status === 4) {
+                if ($row->earned_amount !== null && (float)$row->earned_amount > 0) {
+                    $earnedAmount = (float) $row->earned_amount;
+                } else {
+                    $earnedAmount = $ready * $rate;
+                }
             }
 
-            $productions = $rows->map(function ($row) use ($machines) {
-                $totalLength = (float) $row->total_length;
-                $rate = (float) ($row->amount_per_meter ?? 0);
-                $ready = (float) $row->ready_production;
-                $waste = (float) $row->waste_production;
-
-                return [
-                    'production_id'        => $row->id,
-                    'batch_id'             => $row->batch_id,
-                    'variety_type'         => $row->variety_type,
-                    'total_length'         => $totalLength,
-                    'ready_production'     => (int) $row->ready_production,
-                    'waste_production'     => (float) $row->waste_production,
-                    'remaining_production' => $totalLength - $ready - $waste, // NEW
-                    'machine_name'         => $machines[$row->machine_id] ?? null, // NEW
-                    'amount_per_meter'     => $rate,
-                    'amount'               => $totalLength * $rate,
-                    'select_days'          => $row->select_days,
-                    'shift_start'          => $row->shift_start,
-                    'shift_end'            => $row->shift_end,
-                    'created_at'           => $row->created_at,
-                ];
-            })->values();
-
             return [
-                'employee_id'    => (int) $employeeId,
-                'employee_name'  => $employeeName,
-                'factory_name'   => $factoryName,   // NEW
-                'manager_name'   => $managerName,   // NEW
-                'total_amount'   => $productions->sum('amount'),
-                'total_length'   => $productions->sum('total_length'),
-                'productions'    => $productions,
+                'production_id'        => $row->id,
+                'batch_id'             => $row->batch_id,
+                'variety_type'         => $row->variety_type,
+                'status'               => $status,
+                'total_length'         => $totalLength,
+                'ready_production'     => (int) $ready,
+                'waste_production'     => $waste,
+                'remaining_production' => max(0, $totalLength - $ready - $waste),
+                'amount_per_meter'     => $rate,
+                'expected_amount'      => $expectedAmount,
+                'earned_amount'        => $earnedAmount,
+                'amount'               => $earnedAmount, // backward compatibility
+                'select_days'          => $row->select_days,
+                'shift_start'          => $row->shift_start,
+                'shift_end'            => $row->shift_end,
+                'created_at'           => $row->created_at,
             ];
         })->values();
 
-        return response()->json([
-            'data' => $grouped,
-        ]);
-    }
-    // Assign production
+        $expectedTotal = (float) $productions->sum('expected_amount');
+        $earnedTotal   = (float) $productions->sum('earned_amount');
+
+        return [
+            'machine_id'           => $machineId ? (int) $machineId : null,
+            'machine_name'         => $machines[$machineId] ?? 'Unassigned',
+            'production_count'     => $productions->count(),
+            'total_length'         => $productions->sum('total_length'),
+            'ready_production'     => $productions->sum('ready_production'),
+            'waste_production'     => $productions->sum('waste_production'),
+            'remaining_production' => $productions->sum('remaining_production'),
+            'expected_amount'      => $expectedTotal,
+            'earned_amount'        => $earnedTotal,
+            'total_amount'         => $earnedTotal, // backward compatibility
+            'productions'          => $productions,
+        ];
+    })->values();
+
+    // Total expected for all batches of this employee
+    $totalExpected = (float) $machineGroups->sum('expected_amount');
+
+    // Total earned from approved batches of this employee
+    $totalEarned = (float) $machineGroups->sum('earned_amount');
+
+    // Total already paid
+    $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
+
+    // Remaining payable amount
+    $remainingAmount = max(0, $totalEarned - $totalPaid);
+
+    return [
+        'employee_id'      => (int) $employeeId,
+        'employee_name'    => $employeeName,
+        'factory_name'     => $factoryName,
+        'manager_name'     => $managerName,
+
+        // Payment summary
+        'total_expected'   => $totalExpected,
+        'total_amount'     => $totalEarned,
+        'total_earned'     => $totalEarned,
+        'total_paid'       => $totalPaid,
+        'remaining_amount' => $remainingAmount,
+
+        'total_length'     => $machineGroups->sum('total_length'),
+        'machines'         => $machineGroups,
+    ];
+})->values();
+
+
+    return response()->json([
+        'data' => $grouped,
+    ]);
+}
+    // 9. Assign production (FIXED)
     public function assignProduction(Request $request)
     {
         $request->validate([

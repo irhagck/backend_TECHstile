@@ -365,4 +365,27 @@ class ManagerController extends Controller
     ]);
 
 }
+  // ==========================
+    // PAYMENTS / PRODUCTIONS
+    // ==========================
+    public function payments($factoryId)
+    {
+        $factory = Factory::find($factoryId);
+
+        if (!$factory) {
+            return response()->json([
+                "message" => "Factory not found"
+            ], 404);
+        }
+
+        $productions = Production::with(['employeedetails.user', 'machineemploye'])
+            ->where('factory_id', $factoryId)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            "status" => true,
+            "productions" => $productions,
+        ]);
+    }
 }

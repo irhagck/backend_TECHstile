@@ -56,23 +56,19 @@ Route::prefix('manager')->group(function () {
     Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
     Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
     Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
+    Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
 });
 
 Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
 
 Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
-Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
 Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
 Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 
 // NOTIFICATION
-Route::get('notifications/{user}', [NotificationController::class, 'index']);
+Route::get('notifications/{user?}', [NotificationController::class, 'index']);
 Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
-Route::post('notifications/create', [NotificationController::class, 'store']);
-Route::get(
-'/notifications/unread/{userId}',
-[NotificationController::class,'unreadCount']
-);
+Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
 
 /*
 |--------------------------------------------------------------------------
@@ -82,6 +78,8 @@ Route::get(
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
+    Route::post('/change-password', [ManagerSettingController::class, 'changePassword']);
+    Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
 
     // ── Manager Productions ────────────────────────────────
@@ -148,8 +146,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('editfactory/{id}',    [FactoryController::class, 'show']);
         Route::put('updatefactory/{id}',  [FactoryController::class, 'update']);
         Route::delete('deletefactory/{id}', [FactoryController::class, 'destroy']);
-        Route::get('dashboard/{id}',[FactoryController::class,'dashboard']);
-});
+    });
 
     /*
     |---------------------------
@@ -207,6 +204,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/edit_employee/{id}',    [EmployeeController::class, 'edit'])->middleware('permission:edit employees');
         Route::put('/update_employee/{id}',  [EmployeeController::class, 'update'])->middleware('permission:edit employees');
         Route::delete('/delete_employee/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:delete employees');
+        Route::get('/{id}/earned-amount', [EmployeeController::class, 'earnedAmount']);
     });
 
     /*
@@ -275,7 +273,7 @@ Route::post('payments/add-payments/{factoryId}', [PaymentController::class, 'sto
 
 //Payments
 Route::get('/payments', [PaymentController::class, 'index']);          // list (optional ?factory_id=)
-Route::post('/payments', [PaymentController::class, 'store']);          // ✅ ye wala chahiye
+Route::post('/payments', [PaymentController::class, 'store']);          
 Route::get('/payments/{payment}', [PaymentController::class, 'show']);
 Route::put('/payments/{payment}', [PaymentController::class, 'update']);
 Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
