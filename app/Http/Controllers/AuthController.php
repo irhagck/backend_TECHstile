@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
@@ -16,7 +15,6 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-
 
 
 class AuthController extends Controller
@@ -36,24 +34,23 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->with('roles')->first();
-        info($request->password);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid login'
+                'message' => 'Invalid credentials'
             ], 401);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
         $role  = $user->roles->first()?->name;
 
-        // ✅ role ke hisaab se factory_id nikalo
+        // based on role find factory id
         $factoryId = null;
 
         if ($role === 'manager') {
-            $factoryId = Factory::where('manager_id', $user->id)
-                ->value('id');
+            $factoryId = Production::where('manager_id', $user->id)
+                ->value('factory_id');
         } elseif ($role === 'employee') {
             $factoryId = Employee::where('user_id', $user->id)
                 ->value('factory_id');
@@ -142,13 +139,6 @@ class AuthController extends Controller
     return response()->json([
         'message' => 'login email.',
     ]);
-
-
-
-    
-
-
-
 }
 
 
@@ -163,7 +153,7 @@ class AuthController extends Controller
     // Generate a secure token
     $token = Str::random(64);
 
-    // Store token in password_reset_tokens table
+    // Store token in password reset tokens table
     DB::table('password_reset_tokens')->updateOrInsert(
         ['email' => $user->email],
         [
@@ -273,7 +263,7 @@ public function updatePassword(Request $request)
         ]);
     }
 
-    // Check expiry (e.g. 60 minutes)
+    // Check expiry 
     $expiresInMinutes = 60;
     if (Carbon::parse($resetRecord->created_at)->addMinutes($expiresInMinutes)->isPast()) {
         throw ValidationException::withMessages([
@@ -310,5 +300,3 @@ public function updatePassword(Request $request)
         ], 200);
     }
 }
-
-// everything is working fine

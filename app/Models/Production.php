@@ -15,6 +15,8 @@ class Production extends Model
         'ready_production',
         'waste_production',
         'remaining',
+        'alert_threshold',
+        'alert_sent',
         'machine_id',
         'employee_id',
         'manager_id',
