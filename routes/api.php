@@ -274,7 +274,7 @@ Route::post('payments/add-payments/{factoryId}', [PaymentController::class, 'sto
 
 //Payments
 Route::get('/payments', [PaymentController::class, 'index']);          // list (optional ?factory_id=)
-Route::post('/payments', [PaymentController::class, 'store']);          // ✅ ye wala chahiye
+Route::post('/payments', [PaymentController::class, 'store']);          
 Route::get('/payments/{payment}', [PaymentController::class, 'show']);
 Route::put('/payments/{payment}', [PaymentController::class, 'update']);
 Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);

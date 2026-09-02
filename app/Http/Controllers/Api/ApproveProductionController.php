@@ -129,24 +129,23 @@ public function managerProductions($factoryId)
         'production' => $prod,
     ]);
 }
-    // ── OWNER: get all productions for factory ────────────────
-    // GET /api/owner/productions/{factoryId}
+    // Owner get all productions for factory
   public function ownerProductions($factoryId)
 {
-    // ✅ Sirf isi factory ke valid employee IDs
+    // only this factory valid employee id's
     $validEmployeeIds = Employee::where('factory_id', $factoryId)
         ->pluck('id');
 
-    // ✅ Sirf isi factory ki valid machine IDs
+    // only this factory valid machine id's
     $validMachineIds = Machine::where('factory_id', $factoryId)
         ->pluck('id');
 
     $productions = Production::where('factory_id', $factoryId)
-        ->whereIn('status', [1, 2, 3, 4]) // owner sab dekh sakta hai — pending/approved/rejected sab
+        ->whereIn('status', [1, 2, 3, 4]) // owner view production pending,approved and rejected 
         ->whereIn('employee_id', $validEmployeeIds)
         ->whereIn('machine_id', $validMachineIds)
         ->with([
-            'employeedetails.user', // ✅ sahi relation names
+            'employeedetails.user', 
             'machineemploye'
         ])
         ->latest()
@@ -157,9 +156,7 @@ public function managerProductions($factoryId)
         'productions' => $productions
     ]);
 }
-    // ── OWNER: approve or reject ──────────────────────────────
-    // POST /api/owner/productions/{id}/action
-    // body: { "action": "approve" | "reject" }
+    //Owner approve or reject 
   public function ownerAction(Request $request, $id)
 {
     $request->validate(['action' => 'required|in:approve,reject']);
@@ -177,7 +174,7 @@ public function managerProductions($factoryId)
 
     $ownerName = $request->user()->name ?? 'Owner';
 
-    // ── employee ko notify karo ──
+    // Notify the employee about the action
     try {
         $employeeUserId = $prod->employeedetails->user->id ?? null;
 
@@ -197,7 +194,7 @@ public function managerProductions($factoryId)
         \Log::error('Notification create failed: ' . $e->getMessage());
     }
 
-    // ── manager ko bhi notify karo ──
+    // Notify to also manager
     try {
         if ($prod->manager_id) {
             $machineName  = optional($prod->machineemploye)->machine_name ?? 'Machine';

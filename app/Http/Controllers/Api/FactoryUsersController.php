@@ -9,54 +9,92 @@ use Illuminate\Http\Request;
 
 class FactoryUsersController extends Controller
 {
-    // ✅ GET /api/factory-users/{factoryId}
-    // Manager + saare users jo isi factory se related hain
-    public function getUsersByFactory($factoryId)
-    {
-        $managerId = Production::where('factory_id', $factoryId)
-            ->whereNotNull('manager_id')
-            ->orderByDesc('id')
-            ->value('manager_id');
+    // get factory users (manager + employees) with active status
+  public function getUsersByFactory($factoryId)
+{
+    // Manager
+    $managerId = Production::where('factory_id', $factoryId)
+        ->whereNotNull('manager_id')
+        ->orderByDesc('id')
+        ->value('manager_id');
 
-        $manager = $managerId
-            ? User::with('roles')->find($managerId)
-            : null;
+    $manager = $managerId
+        ? User::with('roles')->find($managerId)
+        : null;
 
-        $employees = \App\Models\Employee::where('factory_id', $factoryId)->get();
-        $employeeUserIds = $employees->pluck('user_id');
 
-        // ✅ "Active" = jis employee ne aaj (last 24 ghantay) machine scan kar ke
-        // production submit ki ho
-        $activeEmployeeIds = Production::where('factory_id', $factoryId)
-            ->where('created_at', '>=', now()->subHours(24))
-            ->pluck('employee_id')
-            ->unique();
+    // Factory ke employees
+    $employees = \App\Models\Employee::where(
+        'factory_id',
+        $factoryId
+    )->get();
 
-        $activeUserIds = $employees
-            ->whereIn('id', $activeEmployeeIds)
-            ->pluck('user_id');
+    $employeeUserIds = $employees->pluck('user_id');
 
-        $users = User::with('roles')
-            ->whereIn('id', $employeeUserIds)
-            ->get()
-            ->map(function ($user) use ($employees, $activeUserIds) {
-                $emp = $employees->firstWhere('user_id', $user->id);
-                $arr = $user->toArray();
-                $arr['employee_id'] = $emp?->id;
-                $arr['is_active']   = $activeUserIds->contains($user->id);
-                return $arr;
-            });
+    /*
+    |--------------------------------------------------------------------------
+    | LAST 12 HOURS SHIFT CHECK
+    |--------------------------------------------------------------------------
+    | Pichle 12 ghante me jis employee ki 'IN' attendance lagi hai,
+    | sirf wahi active hoga (current shift employee).
+    */
+    $activeEmployeeIds = \App\Models\Attendence::whereIn(
+        'employee_id',
+        $employees->pluck('id')
+    )
+        ->where('type', 'IN')
+        ->where('created_at', '>=', now()->subHours(12)) 
+        ->pluck('employee_id')
+        ->unique();
 
-        return response()->json([
-            'manager'      => $manager,
-            'data'         => $users,
-            'total_users'  => $users->count(),
-            'active_users' => $activeUserIds->count(),
-        ]);
-    }
 
-    // ✅ GET /api/employees-by-factory/{factoryId}
-    // Sirf isi factory ke employees — dropdown ke liye (name + id)
+    // Employee IDs ko User IDs mein convert karna
+    $activeUserIds = $employees
+        ->whereIn('id', $activeEmployeeIds)
+        ->pluck('user_id');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALL FACTORY EMPLOYEES
+    |--------------------------------------------------------------------------
+    */
+
+    $users = User::with('roles')
+        ->whereIn('id', $employeeUserIds)
+        ->get()
+        ->map(function ($user) use (
+            $employees,
+            $activeUserIds
+        ) {
+
+            $emp = $employees->firstWhere(
+                'user_id',
+                $user->id
+            );
+
+            $arr = $user->toArray();
+
+            $arr['employee_id'] = $emp?->id;
+
+            $arr['is_active'] = $activeUserIds->contains($user->id);
+
+            return $arr;
+        });
+
+
+    return response()->json([
+        'manager' => $manager,
+
+        'data' => $users,
+
+        'total_users' => $users->count(),
+
+        'active_users' => $activeUserIds->count(),
+    ]);
+}
+
+    // Only this factory employees, with their shift timings
     public function getEmployeesByFactory($factoryId)
     {
         $employees = \App\Models\Employee::with('user')

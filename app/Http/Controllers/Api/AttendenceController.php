@@ -8,13 +8,13 @@ use App\Models\Attendence;
 
 class AttendenceController extends Controller
 {
-    // 1. Show all attendance
+    //Show all attendance
     public function index()
     {
         return response()->json(Attendence::all(), 200);
     }
 
-    // 2. Add attendance
+    //Add attendance
     public function store(Request $request)
     {
         $attendence = Attendence::create($request->all());
@@ -25,7 +25,7 @@ class AttendenceController extends Controller
         ], 201);
     }
 
-    // 3. Edit (single record)
+    // Edit 
     public function edit($id)
     {
         $attendence = Attendence::find($id);
@@ -37,7 +37,7 @@ class AttendenceController extends Controller
         return response()->json($attendence, 200);
     }
 
-    // 4. Update attendance
+    //Update attendance
     public function update(Request $request, $id)
     {
         $attendence = Attendence::find($id);
@@ -54,7 +54,7 @@ class AttendenceController extends Controller
         ], 200);
     }
 
-    // 5. Delete attendance
+    //Delete attendance
     public function destroy($id)
     {
         $attendence = Attendence::find($id);
@@ -70,7 +70,7 @@ class AttendenceController extends Controller
         ], 200);
     }
 
-    // employee attendance function
+// employee attendance function
    public function markAttendance(Request $request)
 {
     $request->validate([

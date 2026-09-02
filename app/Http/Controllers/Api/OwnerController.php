@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 
 class OwnerController extends Controller
 {
-    // GET /api/owner/profile/{userId}
+    // get owner profile
     public function profile($userId)
     {
         $user = User::find($userId);

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ProductionController extends Controller
 {
-    // 1. Show all productions
+    // Show all productions
     public function index()
     {
         $productions = Production::with(['factory', 'employee.user', 'machine'])->get();
@@ -24,14 +24,10 @@ class ProductionController extends Controller
         return response()->json($productions, 200);
     }
 
-    // 2. Add production employee
+    // Add production employee
    public function store(Request $request)
 {
     \Log::info('STORE HIT');
-
-    // ✅ Current time employee ki shift window ke andar hai ya nahi (overnight shifts bhi handle karta hai)
-    // e.g. day shift 08:00-20:00, night shift 20:00-08:00 (agla din)
-
     $request->validate([
         'machine_id' => 'required|integer',
         'user_id' => 'required|integer', // frontend se AuthService.userId aayega
@@ -45,7 +41,7 @@ class ProductionController extends Controller
         return response()->json(['message' => 'Factory not found'], 404);
     }
 
-    // ✅ user_id se employees table ka record dhoondo
+    // find employee by user_id in employees table 
     $employee = Employee::where('user_id', $request->user_id)
         ->where('factory_id', $request->factory_id)
         ->first();
@@ -54,9 +50,7 @@ class ProductionController extends Controller
         return response()->json(['message' => 'Employee not found for this user/factory'], 404);
     }
 
-    // ✅ Employee apni shift ke ellawa waqt me production submit nahi kar sakta
-    // (Ye restriction sirf tab lagta hai jab employee khud (QR scan se) submit kar raha ho —
-    //  agar owner/manager kisi employee ki taraf se enter kar raha hai to skip)
+    // employee only allowed to submit production during their shift time
     $isSelfSubmission = $request->user() && $request->user()->id == $request->user_id;
 
     if ($isSelfSubmission && !$this->isWithinShift($employee->shift_starttime, $employee->shift_endtime)) {
@@ -64,9 +58,7 @@ class ProductionController extends Controller
             'message' => "You can only submit production during your shift ({$employee->shift_starttime} - {$employee->shift_endtime})",
         ], 403);
     }
-
-    // ✅ Is employee ki is machine par apni khud ki latest row — yehi uska "current batch" batati hai
-    //    (variety_type/total_length/batch_id client se nahi, isi row se aate hain — source of truth)
+// Latest production record for this employee on this machine
     $ownLatest = Production::where('machine_id', $request->machine_id)
         ->where('employee_id', $employee->id)
         ->latest()
@@ -84,13 +76,13 @@ class ProductionController extends Controller
      
 
 
-    // ✅ manager_id poori factory se dhoondo
+    // find latest manager_id for this factory (if any)
     $managerId = Production::where('factory_id', $request->factory_id)
         ->whereNotNull('manager_id')
         ->latest()
         ->value('manager_id');
 
-    // ✅ Remaining ab is BATCH ka hai — dono shift-employees mila kar (shared), sirf is employee ka nahi
+    // remaining production check minus both employees record ready production
     $readySoFar = Production::where('machine_id', $request->machine_id)
         ->where('batch_id', $batchId)
         ->sum('ready_production');
@@ -135,7 +127,7 @@ class ProductionController extends Controller
 
         $production = Production::create([
             'machine_id' => $request->machine_id,
-            'employee_id' => $employee->id, // ✅ employees.id
+            'employee_id' => $employee->id, 
 
             'factory_id' => $request->factory_id,
             'manager_id' => $managerId,
@@ -206,7 +198,7 @@ class ProductionController extends Controller
         ]);
     }
 
-    // 3. Single production
+    // Single production
     public function edit($id)
     {
         $production = Production::find($id);
@@ -218,7 +210,7 @@ class ProductionController extends Controller
         return response()->json($production, 200);
     }
 
-    // 4. Update production
+    // Update production
     public function update(Request $request, $id)
     {
         $production = Production::find($id);
@@ -235,7 +227,7 @@ class ProductionController extends Controller
         ]);
     }
 
-    // 5. Delete production
+    // Delete production
     public function destroy($id)
     {
         $production = Production::find($id);
@@ -442,8 +434,7 @@ public function viewPayments($factoryId)
             'alert_threshold' => 'nullable|numeric|min:0',
         ]);
 
-        // ✅ Is machine par ab tak jitne employees assign ho chuke hain (dono shifts),
-        // un SABKO ye naya batch milta hai — batch machine ka hota hai, kisi ek employee ka nahi
+        // assign batch to all employes that work on this machine 
         $employeeIds = Production::where('machine_id', $request->machine_id)
             ->whereNotNull('employee_id')
             ->distinct()
@@ -451,7 +442,7 @@ public function viewPayments($factoryId)
 
         if ($employeeIds->isEmpty()) {
             return response()->json([
-                'message' => 'Is machine par pehle koi employee assign karein (Assign Machine se), phir production batch assign karein.',
+                'message' => 'First assign employees to this machine, then assign production batch.',
             ], 422);
         }
 
@@ -493,7 +484,7 @@ public function viewPayments($factoryId)
                 'status' => 1,
             ]);
 
-            $created[] = $production;   // 👈 append to the array (for count() later)
+            $created[] = $production;   // append to the array for count() later
 
              $user_Name = User::whereId($employee->user_id)->first();
              Notification::create([
@@ -512,12 +503,10 @@ public function viewPayments($factoryId)
         ], 201);
     }
 
-    // ✅ Helper: check karo current time employee ki shift window ke andar hai ya nahi
-    // Overnight shifts (e.g. 20:00 - 08:00) ko bhi handle karta hai
+    // check the employee shift of current time
     private function isWithinShift($start, $end)
     {
         if (!$start || !$end) {
-            // Agar shift assign hi nahi hai to allow kar do (fail-open) taake purana data na tootay
             return true;
         }
 
@@ -526,11 +515,11 @@ public function viewPayments($factoryId)
         $end   = \Carbon\Carbon::parse($end)->format('H:i:s');
 
         if ($start <= $end) {
-            // Normal shift (e.g. 08:00 - 20:00)
+            // Normal shift 
             return $now >= $start && $now <= $end;
         }
 
-        // Overnight shift (e.g. 20:00 - 08:00 agle din)
+        // Overnight shift 
         return $now >= $start || $now <= $end;
     }
 }

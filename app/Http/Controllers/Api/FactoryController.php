@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use App\Models\Employee;
 class FactoryController extends Controller
 {
-    // 1. Get all factories
+    // Get all factories
     public function index()
     {
         $factories = Factory::latest()->get();
@@ -33,7 +33,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 2. Insert factory
+    // Insert factory
     public function store(Request $request)
     {
         $request->validate([
@@ -51,7 +51,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 3. Edit (Get single factory)
+    // Edit (Get single factory)
     public function show($id)
     {
         $factory = Factory::find($id);
@@ -69,7 +69,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 4. Update factory
+    // Update factory
     public function update(Request $request, $id)
     {
         $factory = Factory::find($id);
@@ -96,7 +96,7 @@ class FactoryController extends Controller
         ]);
     }
 
-    // 5. Delete factory
+    // Delete factory
     public function destroy($id)
     {
         $factory = Factory::find($id);
@@ -214,8 +214,8 @@ class FactoryController extends Controller
             "total_varieties" => $varietiesGrouped->count(),
             "machines_count"  => Machine::where('factory_id', $id)->count(),
 
-            // ✅ Factory ke actual assigned employees count
-            "employees_count" => Employee::where('factory_id', $id)->count(),
+        //Count assigned employees, only that employee that enter production
+        "employees_count" => Employee::where('factory_id', $id)->count(),
 
             // ✅ Varieties grouped data for the selected period
             "varieties"       => $varietiesGrouped,

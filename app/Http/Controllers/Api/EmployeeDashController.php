@@ -27,17 +27,16 @@ class EmployeeDashController extends Controller
         ], 404);
     }
 
-    // Employee ki factory
+    // Employee factory
     $factoryId = $employee->factory_id;
 
-    // Factory ka manager
+    // Factory manager
     $managerId = Production::where('factory_id', $factoryId)
         ->whereNotNull('manager_id')
         ->latest()
         ->value('manager_id');
 
-    // ✅ Employee ko jitni bhi machines assign hain (koi bhi status — pending ho ya approved),
-    // taake dashboard sirf production approve hony ka wait na kare
+    // Employee show all machines that assign 
     $assignedMachineIds = Production::where('employee_id', $employee->id)
         ->distinct()
         ->pluck('machine_id');
@@ -78,8 +77,8 @@ class EmployeeDashController extends Controller
         ];
     })->filter()->values();
 
-    // ✅ Daily/Weekly = SIRF approved production (status 2 = manager approved, 4 = owner approved),
-    // sab machines mila kar
+    // Daily and Weekly only approved production (status 2 = manager approved, 4 = owner approved)
+
     $approvedQuery = Production::where('employee_id', $employee->id)
         ->whereIn('status', [2, 4]);
 
@@ -106,8 +105,6 @@ class EmployeeDashController extends Controller
 
         'daily_ready_production'  => $dailyApproved,
         'weekly_ready_production' => $weeklyApproved,
-
-        // ✅ backward-compat field names (purane frontend ke liye)
         'total_production' =>
             $data->sum('total_length'),
 
@@ -133,7 +130,7 @@ class EmployeeDashController extends Controller
         return response()->json(['message' => 'Machine not found'], 404);
     }
 
-    // ✅ Latest production — employee + machine ke basis pe
+    // Latest production employee and machine base
     $production = Production::with(['employeedetails.user'])
         ->where('machine_id', $id)
         ->where('employee_id', $employee->id)
@@ -150,14 +147,13 @@ class EmployeeDashController extends Controller
         ], 422);
     }
 
-    // ✅ Sirf isi batch ka sum — is employee ka apna contribution
+    // Only this batch sum
     $totalReadyProduction = Production::where('machine_id', $id)
         ->where('employee_id', $employee->id)
         ->where('batch_id', $production->batch_id)
         ->sum('ready_production');
 
-    // ✅ Remaining ab SHARED hai — is batch ki DONO shift-employees ki total ready+waste
-    //    machine ke total_length se nikaali jati hai (stale per-row 'remaining' field trust nahi karte)
+    //Remaining is shared this batch have both employees remaining and wastage minus ready production
     $batchReadyTotal = Production::where('machine_id', $id)
         ->where('batch_id', $production->batch_id)
         ->sum('ready_production');
@@ -184,7 +180,7 @@ class EmployeeDashController extends Controller
         ->whereYear('created_at', Carbon::now()->year)
         ->sum('ready_production');
 
-   //  Check today attendance (timestamp based)
+   //  Check today attendance 
 $alreadyMarkedToday = Attendence::where('employee_id', $employee->id)
     ->where('machine_id', $id)
     ->where('type', 'IN')
@@ -235,7 +231,7 @@ public function profile(Request $request, $id)
    if ($employee) {
 
 
-    // 🔥 employee ki current factory + manager find karo
+    //Employee current factory id and manager id
     $lastProduction = Production::where(
         'employee_id',
         $employee->id
@@ -249,7 +245,7 @@ public function profile(Request $request, $id)
 
 
 
-    // 🔥 ONLY SAME EMPLOYEE + SAME FACTORY + SAME MANAGER
+    //only same empoyee, factory, and manager
     $productions = Production::with([
         'machineemploye',
         'employeedetails.user'
@@ -267,7 +263,7 @@ public function profile(Request $request, $id)
         Carbon::now()
     ])
     ->get();
-        // group machine + variety + batch
+        // group machine, variety, and batch
         $grouped = $productions->groupBy(function ($item) {
             return $item->machine_id . '_'
                 . $item->variety_type . '_'
