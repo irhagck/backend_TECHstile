@@ -104,6 +104,27 @@ class ProductionController extends Controller
         ], 400);
     }
 
+    // ✅ Alert threshold batch assign hote waqt set hui thi — is batch ki har row par carry hoti hai
+    $alertThreshold = $ownLatest->alert_threshold;
+
+    // Is batch ke liye pehle hi alert ja chuki? (kisi bhi row par alert_sent = true)
+    $alertAlreadySent = Production::where('machine_id', $request->machine_id)
+        ->where('batch_id', $batchId)
+        ->where('alert_sent', true)
+        ->exists();
+
+    $shouldSendAlert = $alertThreshold !== null
+        && $newRemaining <= $alertThreshold
+        && !$alertAlreadySent;
+
+    // ✅ Owner khud jo production Machines page se enter karta hai, usko approval
+    //    ki zarurat nahi — wo seedha "approved" (status 4) create hoti hai.
+    //    Employee (khud ya kisi aur ki taraf se, jab tak woh owner na ho) ki entry
+    //    hamesha pehle "Added" (status 1) me jati hai, phir manager/owner review karte hain.
+    $actingUser = $request->user();
+    $enteredByOwner = $actingUser && method_exists($actingUser, 'hasRole') && $actingUser->hasRole('owner');
+    $initialStatus = $enteredByOwner ? 4 : 1;
+
         $production = Production::create([
             'machine_id' => $request->machine_id,
             'employee_id' => $employee->id, 
@@ -118,33 +139,57 @@ class ProductionController extends Controller
             'waste_production' => $request->waste_production,
 
             'remaining' => $newRemaining,
+            'alert_threshold' => $alertThreshold,
+            'alert_sent' => $shouldSendAlert,
 
             'batch_id' => $batchId,
 
             'shift_start' => $employee->shift_starttime,
             'shift_end' => $employee->shift_endtime,
 
-            'status' => 1,
+            'status' => $initialStatus,
         ]);
 
-        // send notification to all owners about new production submission
-        try {
-            $machineName = Machine::where('id', $request->machine_id)->value('machine_name');
-            $employeeName = $employee->user?->name ?? 'Employee';
+        $machineName = Machine::where('id', $request->machine_id)->value('machine_name');
+        $employeeName = $employee->user?->name ?? 'Employee';
 
-            $owners = User::role('owner')->get();
-            foreach ($owners as $owner) {
-                Notification::create([
-                    'user_id'       => $owner->id,
-                    'production_id' => $production->id,
-                    'sender_id'     => $request->user_id,
-                    'title'         => 'New Production Submitted',
-                    'message'       => "$employeeName submitted production on machine \"$machineName\" — pending approval",
-                    'type'          => 'production_created',
-                ]);
+        // ✅ Owner(s) ko "pending approval" notification sirf tab bhejo jab isko
+        //    waqai review ki zarurat ho — owner ki khud ki entry ko nahi (wo already approved hai)
+        if (!$enteredByOwner) {
+            try {
+                $owners = User::role('owner')->get();
+                foreach ($owners as $owner) {
+                    Notification::create([
+                        'user_id'       => $owner->id,
+                        'production_id' => $production->id,
+                        'sender_id'     => $request->user_id,
+                        'title'         => 'New Production Submitted',
+                        'message'       => "$employeeName submitted production on machine \"$machineName\" — pending approval",
+                        'type'          => 'production_created',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Owner notification create failed: ' . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            \Log::error('Owner notification create failed: ' . $e->getMessage());
+        }
+
+        // ✅ Low-remaining alert — machine ki total length khatam hone wali hai
+        if ($shouldSendAlert) {
+            try {
+                $owners = User::role('owner')->get();
+                foreach ($owners as $owner) {
+                    Notification::create([
+                        'user_id'       => $owner->id,
+                        'production_id' => $production->id,
+                        'sender_id'     => $request->user_id,
+                        'title'         => 'Production Running Low',
+                        'message'       => "Machine \"$machineName\" ($varietyType) has only $newRemaining meters remaining — nearing the total length limit.",
+                        'type'          => 'low_remaining_alert',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Low-remaining alert notification failed: ' . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -385,7 +430,8 @@ public function viewPayments($factoryId)
             'variety_type' => 'required|string',
             'total_length' => 'required|numeric',
             'amount_per_meter' => 'required|numeric',
-            'select_days' => 'required|string',
+            // Optional — owner gets notified once a batch's remaining length drops to this
+            'alert_threshold' => 'nullable|numeric|min:0',
         ]);
 
         // assign batch to all employes that work on this machine 
@@ -425,7 +471,8 @@ public function viewPayments($factoryId)
                 'variety_type' => $request->variety_type,
                 'total_length' => $request->total_length,
                 'amount_per_meter' => $request->amount_per_meter,
-                'select_days' => $request->select_days,
+                'alert_threshold' => $request->alert_threshold,
+                'alert_sent' => false,
 
                 'ready_production' => 0,
                 'waste_production' => 0,

@@ -13,6 +13,7 @@ class Factory extends Model
         'name',
         'address',
         'city',
+        'week_start_day',
     ];
 
     public function manager()
