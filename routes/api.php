@@ -164,6 +164,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('update/{id}',   [UserController::class, 'update']);
         Route::delete('delete/{id}', [UserController::class, 'destroy']);
     });
+    Route::get('/roles', [UserController::class, 'getRoles']);
 
     /*
     |---------------------------

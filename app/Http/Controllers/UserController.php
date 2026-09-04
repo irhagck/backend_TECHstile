@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Employee;
 use Illuminate\Support\Facades\Hash;
-
+use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 class UserController extends Controller
 {
         public function managers()
@@ -43,43 +45,67 @@ public function employees()
         'data' => $users
     ], 200);
 }
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'name'             => 'required|string|max:255',
+        'email'            => 'required|email|unique:users,email',
+        'password'         => 'required|string|min:6',
+        'phone_no'         => 'nullable|string',
+        'cnic'             => 'nullable|string|unique:users,cnic',
+        'address'          => 'nullable|string',
+        'role'             => 'required|string|exists:roles,name',
+        'employee_details' => 'nullable|string',
+    ]);
 
-    // Add User
-    public function store(Request $request)
-    {
-        $request->validate([
-         'name'              => 'required|string|max:255',
-         'email'             => 'required|email|unique:users,email',
-         'password'          => 'required|min:6',
-         'phone_no'          => 'required|string|max:20',
-         'cnic'              => 'required|string|max:20|unique:users,cnic',
-         'address'           => 'nullable|string',
-        //  'pic'               => 'nullable|string',
-         'role'              => 'required|string',
-         'employee_details'  => 'nullable|string',
-        ]);
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => $validator->errors()->first()
+        ], 400);
+    }
 
-        $user = User::create([
-         'name'              => $request->name,
-         'email'             => $request->email,
-         'password'          => Hash::make($request->password),
-         'phone_no'          => $request->phone_no,
-         'cnic'              => $request->cnic,
-         'address'           => $request->address,
-        //  'pic'               => $request->pic,
-         'role'              => $request->role,
-         'employee_details'  => $request->employee_details,
-        ]);
-        if ($request->filled('role')) {
-    $user->syncRoles([$request->role]);
-}
+    try {
+        $user = DB::transaction(function () use ($request) {
+            // 1. Create User
+            $newUser = User::create([
+                'name'             => $request->name,
+                'email'            => $request->email,
+                'password'         => Hash::make($request->password),
+                'phone_no'         => $request->phone_no,
+                'cnic'             => $request->cnic,
+                'address'          => $request->address,
+                'employee_details' => $request->employee_details,
+            ]);
+
+            // 2. Assign Spatie Role
+            $newUser->assignRole($request->role);
+
+            return $newUser;
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'User created successfully',
-           'data'    => $user->load('roles')
+            'data'    => $user->load('roles')
         ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create user: ' . $e->getMessage()
+        ], 500);
     }
+}
+    public function getRoles()
+{
+    $roles = Role::all();
+
+    return response()->json([
+        'success' => true,
+        'roles'   => $roles
+    ], 200);
+}
 
     //Get Single User (Edit)
     public function edit($id)
