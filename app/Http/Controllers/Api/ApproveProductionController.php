@@ -9,6 +9,8 @@ use App\Models\Employee;
 use App\Models\Machine;
 use App\Models\Factory;
 use App\Models\Notification;
+use Carbon\Carbon;
+
 class ApproveProductionController extends Controller
 {
     // STATUS REFERENCE:
@@ -19,51 +21,95 @@ class ApproveProductionController extends Controller
     //   5 = owner rejected
 
 
-    //MANAGER get all productions for factory 
-  
-public function managerProductions($factoryId)
-{
-   
-    $factory = Factory::find($factoryId);
+    // MANAGER get all productions for factory (grouped by employee -> machine, period filter ke saath)
+    public function managerProductions(Request $request, $factoryId)
+    {
+        $factory = Factory::find($factoryId);
+        if (!$factory) {
+            return response()->json(['message' => 'Factory not found'], 404);
+        }
 
-    if (!$factory) {
+        $validEmployeeIds = Employee::where('factory_id', $factoryId)->pluck('id');
+        $validMachineIds  = Machine::where('factory_id', $factoryId)->pluck('id');
+
+        $query = Production::where('factory_id', $factoryId)
+            ->whereIn('status', [1, 2, 4]) // manager view: pending, mgr-approved, owner-approved
+            ->whereIn('employee_id', $validEmployeeIds)
+            ->whereIn('machine_id', $validMachineIds)
+            ->with(['employeedetails.user', 'machineemploye']);
+
+        // ---- Period filter (?period=this_week etc.) ----
+        $period = $request->query('period');
+        if ($period) {
+            [$start, $end] = $this->periodRange($period);
+            if ($start && $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            }
+        }
+
+        $productions = $query->latest()->get();
+
+        // Employee-wise group
+        $employees = $productions->groupBy('employee_id')->map(function ($rows, $employeeId) {
+            $first        = $rows->first();
+            $employeeName = optional(optional($first->employeedetails)->user)->name
+                ?? "Emp #$employeeId";
+
+            // Machine-wise group
+            $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) {
+                $machineName = optional($machineRows->first()->machineemploye)->machine_name
+                    ?? "Machine #$machineId";
+
+                // Manager ke liye: pending = status 1, approved = status 2 ya 4 (mgr or owner approved)
+                $pendingRows  = $machineRows->where('status', 1);
+                $approvedRows = $machineRows->whereIn('status', [2, 4]);
+
+                $mapProd = function ($p) {
+                    $total = (float) ($p->total_length ?? 0);
+                    $ready = (float) ($p->ready_production ?? 0);
+                    $waste = (float) ($p->waste_production ?? 0);
+
+                    return [
+                        'id'                => $p->id,
+                        'batch_id'          => $p->batch_id,
+                        'variety_type'      => $p->variety_type,
+                        'status'            => (int) $p->status,
+                        'total_length'      => $total,
+                        'ready_production'  => $ready,
+                        'waste_production'  => $waste,
+                        'remaining'         => max(0, $total - $ready - $waste),
+                        'created_at'        => $p->created_at,
+                        'updated_at'        => $p->updated_at,
+                    ];
+                };
+
+                return [
+                    'machine_id'       => $machineId ? (int) $machineId : null,
+                    'machine_name'     => $machineName,
+                    'pending_count'    => $pendingRows->count(),
+                    'approved_count'   => $approvedRows->count(),
+                    'production_count' => $machineRows->count(),
+                    'pending'          => $pendingRows->map($mapProd)->values(),
+                    'approved'         => $approvedRows->map($mapProd)->values(),
+                ];
+            })->values();
+
+            return [
+                'employee_id'    => (int) $employeeId,
+                'employee_name'  => $employeeName,
+                'machine_count'  => $machineGroups->count(),
+                'pending_count'  => $machineGroups->sum('pending_count'),
+                'approved_count' => $machineGroups->sum('approved_count'),
+                'machines'       => $machineGroups,
+            ];
+        })->values();
+
         return response()->json([
-            'message' => 'Factory not found'
-        ], 404);
+            'status'    => true,
+            'employees' => $employees,
+        ]);
     }
 
-    // Isi factory ke employees
-    $validEmployeeIds = Employee::where(
-        'factory_id',
-        $factoryId
-    )->pluck('id');
-
-    // Isi factory ki machines
-    $validMachineIds = Machine::where(
-        'factory_id',
-        $factoryId
-    )->pluck('id');
-
-    // Productions
-    $productions = Production::where(
-            'factory_id',
-            $factoryId
-        )
-        ->whereIn('status', [1, 2, 4])
-        ->whereIn('employee_id', $validEmployeeIds)
-        ->whereIn('machine_id', $validMachineIds)
-        ->with([
-            'employeedetails.user',
-            'machineemploye'
-        ])
-        ->latest()
-        ->get();
-
-    return response()->json([
-        'status' => true,
-        'productions' => $productions
-    ]);
-}
     // MANAGER: approve or reject
    public function managerAction(Request $request, $id)
 {
@@ -126,86 +172,109 @@ public function managerProductions($factoryId)
         'production' => $prod,
     ]);
 }
-    // Owner get all productions for factory
- // app/Http/Controllers/Api/ApproveProductionController.php
+    // Owner get all productions for factory (period filter ke saath)
+    public function ownerProductions(Request $request, $factoryId)
+    {
+        $factory = Factory::find($factoryId);
+        if (!$factory) {
+            return response()->json(['message' => 'Factory not found'], 404);
+        }
 
-public function ownerProductions($factoryId)
-{
-    $factory = Factory::find($factoryId);
-    if (!$factory) {
-        return response()->json(['message' => 'Factory not found'], 404);
-    }
+        $validEmployeeIds = Employee::where('factory_id', $factoryId)->pluck('id');
+        $validMachineIds  = Machine::where('factory_id', $factoryId)->pluck('id');
 
-    $validEmployeeIds = Employee::where('factory_id', $factoryId)->pluck('id');
-    $validMachineIds  = Machine::where('factory_id', $factoryId)->pluck('id');
+        $query = Production::where('factory_id', $factoryId)
+            ->whereIn('status', [1, 2, 3, 4, 5])
+            ->whereIn('employee_id', $validEmployeeIds)
+            ->whereIn('machine_id', $validMachineIds)
+            ->with(['employeedetails.user', 'machineemploye']);
 
-    $productions = Production::where('factory_id', $factoryId)
-        ->whereIn('status', [1, 2, 3, 4, 5]) // sab statuses, hum khud filter karenge
-        ->whereIn('employee_id', $validEmployeeIds)
-        ->whereIn('machine_id', $validMachineIds)
-        ->with(['employeedetails.user', 'machineemploye'])
-        ->latest()
-        ->get();
+        $period = $request->query('period');
+        if ($period) {
+            [$start, $end] = $this->periodRange($period);
+            if ($start && $end) {
+                $query->whereBetween('created_at', [$start, $end]);
+            }
+        }
 
-    // Employee-wise group
-    $employees = $productions->groupBy('employee_id')->map(function ($rows, $employeeId) {
-        $first        = $rows->first();
-        $employeeName = optional(optional($first->employeedetails)->user)->name
-            ?? "Emp #$employeeId";
+        $productions = $query->latest()->get();
 
-        // Machine-wise group (sirf un machines pe jin pe is employee ne production dala hai)
-        $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) {
-            $machineName = optional($machineRows->first()->machineemploye)->machine_name
-                ?? "Machine #$machineId";
+        $employees = $productions->groupBy('employee_id')->map(function ($rows, $employeeId) {
+            $first        = $rows->first();
+            $employeeName = optional(optional($first->employeedetails)->user)->name
+                ?? "Emp #$employeeId";
 
-            $pendingRows  = $machineRows->whereNotIn('status', [4, 5]); // 1,2,3 = pending
-            $approvedRows = $machineRows->where('status', 4);
+            $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) {
+                $machineName = optional($machineRows->first()->machineemploye)->machine_name
+                    ?? "Machine #$machineId";
 
-            $mapProd = function ($p) {
-                $total = (float) ($p->total_length ?? 0);
-                $ready = (float) ($p->ready_production ?? 0);
-                $waste = (float) ($p->waste_production ?? 0);
+                $pendingRows  = $machineRows->whereNotIn('status', [4, 5]);
+                $approvedRows = $machineRows->where('status', 4);
+
+                $mapProd = function ($p) {
+                    $total = (float) ($p->total_length ?? 0);
+                    $ready = (float) ($p->ready_production ?? 0);
+                    $waste = (float) ($p->waste_production ?? 0);
+
+                    return [
+                        'id'                => $p->id,
+                        'batch_id'          => $p->batch_id,
+                        'variety_type'      => $p->variety_type,
+                        'status'            => (int) $p->status,
+                        'total_length'      => $total,
+                        'ready_production'  => $ready,
+                        'waste_production'  => $waste,
+                        'remaining'         => max(0, $total - $ready - $waste),
+                        'created_at'        => $p->created_at,
+                        'updated_at'        => $p->updated_at,
+                    ];
+                };
 
                 return [
-                    'id'                => $p->id,
-                    'batch_id'          => $p->batch_id,
-                    'variety_type'      => $p->variety_type,
-                    'status'            => (int) $p->status,
-                    'total_length'      => $total,
-                    'ready_production'  => $ready,
-                    'waste_production'  => $waste,
-                    'remaining'         => max(0, $total - $ready - $waste),
-                    'created_at'        => $p->created_at,
-                    'updated_at'        => $p->updated_at,
+                    'machine_id'       => $machineId ? (int) $machineId : null,
+                    'machine_name'     => $machineName,
+                    'pending_count'    => $pendingRows->count(),
+                    'approved_count'   => $approvedRows->count(),
+                    'production_count' => $machineRows->count(),
+                    'pending'          => $pendingRows->map($mapProd)->values(),
+                    'approved'         => $approvedRows->map($mapProd)->values(),
                 ];
-            };
+            })->values();
 
             return [
-                'machine_id'       => $machineId ? (int) $machineId : null,
-                'machine_name'     => $machineName,
-                'pending_count'    => $pendingRows->count(),
-                'approved_count'   => $approvedRows->count(),
-                'production_count' => $machineRows->count(),
-                'pending'          => $pendingRows->map($mapProd)->values(),
-                'approved'         => $approvedRows->map($mapProd)->values(),
+                'employee_id'    => (int) $employeeId,
+                'employee_name'  => $employeeName,
+                'machine_count'  => $machineGroups->count(),
+                'pending_count'  => $machineGroups->sum('pending_count'),
+                'approved_count' => $machineGroups->sum('approved_count'),
+                'machines'       => $machineGroups,
             ];
         })->values();
 
-        return [
-            'employee_id'    => (int) $employeeId,
-            'employee_name'  => $employeeName,
-            'machine_count'  => $machineGroups->count(),
-            'pending_count'  => $machineGroups->sum('pending_count'),
-            'approved_count' => $machineGroups->sum('approved_count'),
-            'machines'       => $machineGroups,
-        ];
-    })->values();
+        return response()->json([
+            'status'    => true,
+            'employees' => $employees,
+        ]);
+    }
 
-    return response()->json([
-        'status'    => true,
-        'employees' => $employees,
-    ]);
-}
+    /**
+     * Period key -> [start, end] Carbon range. Shared by owner + manager.
+     */
+    private function periodRange(string $period): array
+    {
+        $now = Carbon::now();
+
+        return match ($period) {
+            'this_week'      => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
+            'previous_week'  => [$now->copy()->subWeek()->startOfWeek(), $now->copy()->subWeek()->endOfWeek()],
+            'this_month'     => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'previous_month' => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
+            'this_year'      => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+            'previous_year'  => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
+            default          => [null, null],
+        };
+    }
+
     //Owner approve or reject 
   public function ownerAction(Request $request, $id)
 {
@@ -224,7 +293,6 @@ public function ownerProductions($factoryId)
 
     $ownerName = $request->user()->name ?? 'Owner';
 
-    // Notify the employee about the action
     try {
         $employeeUserId = $prod->employeedetails->user->id ?? null;
 
@@ -244,7 +312,6 @@ public function ownerProductions($factoryId)
         \Log::error('Notification create failed: ' . $e->getMessage());
     }
 
-    // Notify to also manager
     try {
         if ($prod->manager_id) {
             $machineName  = optional($prod->machineemploye)->machine_name ?? 'Machine';
@@ -270,5 +337,4 @@ public function ownerProductions($factoryId)
         'production' => $prod,
     ]);
 }
-    
 }
