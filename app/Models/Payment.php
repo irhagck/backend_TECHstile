@@ -13,7 +13,7 @@ class Payment extends Model
         'amount_paid',
         'employee_id',
         'user_id',
-        'production_id', // ✅ NEW
+        'production_id', 
     ];
 
     public function employee()

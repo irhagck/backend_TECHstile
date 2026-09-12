@@ -8,8 +8,10 @@ use App\Models\Factory;
 use App\Models\Production;
 use App\Models\Machine;
 use App\Models\User;
-use Carbon\Carbon;  
+use App\Models\Attendence;
+use Carbon\Carbon;
 use App\Models\Employee;
+
 class FactoryController extends Controller
 {
     // Get all factories
@@ -17,9 +19,21 @@ class FactoryController extends Controller
     {
         $factories = Factory::latest()->get();
 
-        $activeFactoryIds = Production::where('created_at', '>=', now()->subHours(24))
-            ->pluck('factory_id')
+        $cutoff = now()->subHours(12);
+
+        // Pichle 12 hours mein jin employees ne attendance mark ki
+        $recentEmployeeIds = Attendence::where('created_at', '>=', $cutoff)
+            ->pluck('employee_id')
             ->unique();
+
+        $activeFactoryIds = collect();
+
+        if ($recentEmployeeIds->isNotEmpty()) {
+            // In employees ka kis kis factory se link hai (Production table ke zariye)
+            $activeFactoryIds = Production::whereIn('employee_id', $recentEmployeeIds)
+                ->pluck('factory_id')
+                ->unique();
+        }
 
         $factories = $factories->map(function ($f) use ($activeFactoryIds) {
             $arr = $f->toArray();
@@ -124,20 +138,14 @@ class FactoryController extends Controller
             return response()->json(['message' => 'Factory not found'], 404);
         }
 
-        // ✅ Saari productions (har status) fetch karo — history ke liye sirf owner-approved
-        //    (status 4) use hongi, lekin Today / This Week ke liye pipeline breakdown bhi chahiye
-        //    (employee ne kitna add kiya, manager ne kitna approve kiya, owner ne kitna approve kiya).
         $allProductions = Production::where('factory_id', $id)->get();
 
-        // History/period totals hamesha sirf OWNER-APPROVED (status 4) par based hain
         $productions = $allProductions->where('status', 4);
 
-        // 0 = Sunday ... 6 = Saturday (Carbon's dayOfWeek numbering). Default Monday.
         $weekStartDay = (int) ($factory->week_start_day ?? 1);
 
         $rawPeriod = strtolower(trim((string) $request->query('period', $request->query('days', 'this_week'))));
 
-        // Backward-compatible aliases for the old query values
         $aliasMap = [
             'day' => 'today', '1' => 'today', '1day' => 'today', '1_day' => 'today',
             'week' => 'this_week', '7' => 'this_week', '7day' => 'this_week', '7days' => 'this_week', '7_days' => 'this_week',
@@ -148,12 +156,10 @@ class FactoryController extends Controller
 
         [$rangeStart, $rangeEnd, $periodLabel] = $this->resolvePeriodRange($period, $weekStartDay);
 
-        // Filter productions that fall inside the resolved range
         $periodProductions = $productions->filter(function ($p) use ($rangeStart, $rangeEnd) {
             return $p->created_at >= $rangeStart && $p->created_at <= $rangeEnd;
         });
 
-        // ✅ Variety ke hisaab se group karo aur ready_production sum karo
         $varietiesGrouped = $periodProductions
             ->filter(function ($p) {
                 return !empty($p->variety_type);
@@ -170,7 +176,6 @@ class FactoryController extends Controller
         $todayStart = Carbon::today();
         $todayEnd   = Carbon::today()->endOfDay();
 
-        // "Today" stats are always today's — independent of the selected filter
         $todayUnits = $productions
             ->where('created_at', '>=', $todayStart)
             ->where('created_at', '<=', $todayEnd)
@@ -178,7 +183,6 @@ class FactoryController extends Controller
 
         $periodUnits = $periodProductions->sum('ready_production');
 
-        // ✅ Pipeline breakdown — sirf Today aur This Week ke liye (history me sirf approved dikhta hai)
         $todayBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
         $periodBreakdown = ($period === 'this_week')
             ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
@@ -191,8 +195,8 @@ class FactoryController extends Controller
             "week_start_day"      => $weekStartDay,
             "week_start_day_name" => Carbon::now()->startOfWeek(0)->addDays($weekStartDay)->format('l'),
 
-            "selected_period" => $periodLabel,   // e.g. "This Week"
-            "period_key"      => $period,        // e.g. "this_week"
+            "selected_period" => $periodLabel,
+            "period_key"      => $period,
             "range_label"     => $this->formatRangeLabel($rangeStart, $rangeEnd, $period),
             "range_start"     => $rangeStart->toDateString(),
             "range_end"       => $rangeEnd->toDateString(),
@@ -200,29 +204,22 @@ class FactoryController extends Controller
             "today_date"      => Carbon::today()->toDateString(),
             "today_day_name"  => Carbon::today()->format('l'),
 
-            // ✅ "ready_production" = asal ban chuki (owner-approved) production
             "today_units"     => $todayUnits,
             "period_units"    => $periodUnits,
-            "weekly_units"    => $periodUnits, // For backward compatibility with existing views
+            "weekly_units"    => $periodUnits,
 
-            // ✅ Employee-added / Manager-approved / Owner-approved breakdown
-            //    (Today hamesha, aur This Week jab period wahi selected ho — baaki history
-            //    sirf owner-approved total dikhati hai)
             "today_breakdown"  => $todayBreakdown,
             "period_breakdown" => $periodBreakdown,
 
             "total_varieties" => $varietiesGrouped->count(),
             "machines_count"  => Machine::where('factory_id', $id)->count(),
 
-        //Count assigned employees, only that employee that enter production
-        "employees_count" => Employee::where('factory_id', $id)->count(),
+            "employees_count" => Employee::where('factory_id', $id)->count(),
 
-            // ✅ Varieties grouped data for the selected period
             "varieties"       => $varietiesGrouped,
         ]);
     }
 
-    // ✅ Owner apni factory ka "week" kis din se start karta hai woh set/update karta hai
     public function updateWeekStartDay(Request $request, $id)
     {
         $factory = Factory::find($id);
@@ -232,7 +229,6 @@ class FactoryController extends Controller
         }
 
         $request->validate([
-            // 0 = Sunday ... 6 = Saturday
             'week_start_day' => 'required|integer|min:0|max:6',
         ]);
 
@@ -247,16 +243,6 @@ class FactoryController extends Controller
         ]);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    /**
-     * Splits productions inside a date range into 2 buckets by their current status —
-     * used only for Today / This Week, not for older history:
-     *   1 = employee submitted, abhi kisi ne review nahi kiya ("Added")
-     *   2 = manager ne approve kar diya, owner ka approval abhi baaki hai ("Mgr")
-     * (status 4 = owner-approved already shows in the main total, isliye yahan
-     *  alag se nahi dikhaya jata. status 3/5 = rejected, wo bhi shamil nahi.)
-     */
     private function pipelineBreakdown($allProductions, Carbon $start, Carbon $end): array
     {
         $inRange = $allProductions->filter(function ($p) use ($start, $end) {
@@ -269,15 +255,10 @@ class FactoryController extends Controller
         ];
     }
 
-    /**
-     * Resolve [$start, $end, $label] Carbon range for a given period key.
-     * $weekStartDay: 0 (Sun) .. 6 (Sat) — the factory's configured week start.
-     */
     private function resolvePeriodRange(string $period, int $weekStartDay): array
     {
         $today = Carbon::today();
 
-        // How many days back is the start of the CURRENT week from today
         $diffToCurrentWeekStart = ($today->dayOfWeek - $weekStartDay + 7) % 7;
         $currentWeekStart = $today->copy()->subDays($diffToCurrentWeekStart)->startOfDay();
         $currentWeekEnd   = $currentWeekStart->copy()->addDays(6)->endOfDay();
@@ -319,7 +300,6 @@ class FactoryController extends Controller
             return $start->format('D, d M Y');
         }
 
-        // Same month & year → "Sat 29 – Tue 01 Sep"
         if ($start->isSameMonth($end)) {
             return $start->format('D d') . ' – ' . $end->format('D d M Y');
         }

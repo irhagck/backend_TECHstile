@@ -18,8 +18,6 @@ class User extends Authenticatable
      'phone_no',
      'cnic',
      'address',
-    //  'pic',
-     'employee_details',
      'factory_id'
     ];
 
