@@ -237,7 +237,7 @@ class ProductionController extends Controller
  // view-payments
 public function viewPayments($factoryId)
 {
-    $authUser = auth()->user();
+    $authUser = auth('sanctum')->user() ?? auth()->user();
 
     $factory = Factory::find($factoryId);
     if (!$factory) {
@@ -253,21 +253,16 @@ public function viewPayments($factoryId)
     }
 
     // ROLE BASED ACCESS CONTROL
-    if ($authUser->hasRole('owner')) {
-        // Admin full access no restriction
-
-    } elseif ($authUser->hasRole('manager')) {
-        if ((int) $factory->manager_id !== (int) $authUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized: You are not the manager of this factory.'
-            ], 403);
+    if ($authUser) {
+        if ($authUser->hasRole('owner')) {
+            // Admin full access no restriction
+        } elseif ($authUser->hasRole('manager')) {
+            if ($factory->manager_id && (int) $factory->manager_id !== (int) $authUser->id) {
+                return response()->json([
+                    'message' => 'Unauthorized: You are not the manager of this factory.'
+                ], 403);
+            }
         }
-
-    } elseif ($authUser->hasRole('employee')) {
-        // filtered below
-
-    } else {
-        return response()->json(['message' => 'Unauthorized role.'], 403);
     }
  
 
