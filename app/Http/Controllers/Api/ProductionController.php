@@ -276,7 +276,7 @@ class ProductionController extends Controller
             $employee = Employee::where('user_id', $authUser->id)->first();
 
             if (!$employee) {
-                return response()->json(['message' => 'Employee profile not found.'], 404);
+                return response()->json(['message' => 'Employee profile not found.'], 403);
             }
 
             $recordsQuery->where('employee_id', $employee->id);
