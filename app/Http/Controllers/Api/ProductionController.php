@@ -271,7 +271,7 @@ class ProductionController extends Controller
             ->orderBy('employee_id')
             ->orderBy('machine_id')
             ->orderByDesc('created_at');
-
+          info($authUser);
         if ($authUser->hasRole('employee')) {
             $employee = Employee::where('user_id', $authUser->id)->first();
 
