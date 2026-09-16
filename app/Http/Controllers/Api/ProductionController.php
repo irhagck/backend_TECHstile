@@ -252,18 +252,7 @@ class ProductionController extends Controller
             $managerName = $manager?->name;
         }
 
-        // ROLE BASED ACCESS CONTROL
-        if ($authUser) {
-            if ($authUser->hasRole('owner')) {
-                // Admin full access no restriction
-            } elseif ($authUser->hasRole('manager')) {
-                if ($factory->manager_id && (int) $factory->manager_id !== (int) $authUser->id) {
-                    return response()->json([
-                        'message' => 'Unauthorized: You are not the manager of this factory.'
-                    ], 403);
-                }
-            }
-        }
+
     
 
         $recordsQuery = Production::where('factory_id', $factoryId)
@@ -272,17 +261,37 @@ class ProductionController extends Controller
             ->orderBy('machine_id')
             ->orderByDesc('created_at');
           info($authUser);
-        if ($authUser->hasRole('employee')) {
-            $employee = Employee::where('user_id', $authUser->id)->first();
 
-            if (!$employee) {
-                return response()->json(['message' => 'Employee profile not found.'], 403);
+
+        // ROLE BASED ACCESS CONTROL
+        if ($authUser) {
+            if ($authUser->hasRole('owner')) {
+                // Admin full access, no restriction
+
+            } elseif ($authUser->hasRole('manager')) {
+                if ($factory->manager_id && (int) $factory->manager_id !== (int) $authUser->id) {
+                    return response()->json([
+                        'message' => 'Unauthorized: You are not the manager of this factory.'
+                    ], 403);
+                }
+
+            } elseif ($authUser->hasRole('employee')) {
+                $employee = Employee::where('user_id', $authUser->id)->first();
+
+                if (!$employee) {
+                    return response()->json(['message' => 'Employee profile not found.'], 403);
+                }
+
+                $recordsQuery->where('employee_id', $employee->id);
             }
-
-            $recordsQuery->where('employee_id', $employee->id);
         }
 
         $records = $recordsQuery->get();
+
+    
+
+
+
 
         // Get total paid amount for each employee
         $employeeIds = $records->pluck('employee_id')->filter()->unique();
@@ -417,7 +426,7 @@ class ProductionController extends Controller
             'total_length'     => $machineGroups->sum('total_length'),
             'machines'         => $machineGroups,
         ];
-    })->values();
+     })->values();
 
 
         return response()->json([
