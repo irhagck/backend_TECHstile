@@ -180,7 +180,7 @@ class FactoryController extends Controller
 
         // ✅ Pipeline breakdown — sirf Today aur This Week ke liye (history me sirf approved dikhta hai)
         $todayBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
-        $periodBreakdown = ($period === 'this_week')
+        $periodBreakdown = in_array($period, ['this_week', 'today'])
             ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
             : null;
 
