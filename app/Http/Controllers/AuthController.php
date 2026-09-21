@@ -24,10 +24,8 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'email'    => 'required|email',
-            'password' => 'required',
-        
-]);
-     
+            'password' => 'required'
+        ]);
 
         if ($validator->fails()) {
             return response()->json([
@@ -52,16 +50,10 @@ class AuthController extends Controller
         $factoryId = null;
 
         if ($role === 'manager') {
-            $factoryId = Factory::where('manager_id', $user->id)->value('id');
+            $factoryId = production::where('manager_id', $user->id)->value('factory_id');
         } elseif ($role === 'employee') {
             $factoryId = Employee::where('user_id', $user->id)->value('factory_id');
         }
-        \Log::info([
-            'user_id'    => $user->id,
-            'role'       => $role,
-            'factory_id' => $factoryId
-        ]);
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -73,7 +65,6 @@ class AuthController extends Controller
                     'phone_no'   => $user->phone_no,
                     'cnic'       => $user->cnic,
                     'address'    => $user->address,
-                    'pic'        => $user->pic,
                     'roles'      => $user->roles,
                     'role'       => $role,
                     'factory_id' => $factoryId,
@@ -166,10 +157,10 @@ class AuthController extends Controller
                 ->subject('Reset Your Password');
     });
 
-    return response()->json([
-        'message' => 'Password reset link has been sent to your email.',
-    ]);
+    return response()->json(['success' => true, 'message' => 'Password reset link has been sent to your
+    email.']);
 }
+
     public function resetPassword(Request $request)
     { 
         return view('reset_password');
@@ -240,4 +231,10 @@ public function updatePassword(Request $request)
             'user'    => $request->user()->load('roles')
         ], 200);
     }
+//logout
+    public function logout(Request $request)
+{
+    $request->user()->currentAccessToken()->delete();
+    return response()->json(['success' => true, 'message' => 'Logged out']);
+}
 }

@@ -46,29 +46,6 @@ Route::post('/update-password', [AuthController::class, 'updatePassword']);
 Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
 Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
 
-/*
-|--------------------------------------------------------------------------
-| MANAGER ROUTES (public — abhi bina auth ke)
-|--------------------------------------------------------------------------
-*/
-
-Route::prefix('manager')->group(function () {
-    Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
-    Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
-    Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
-    Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
-});
-
-Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
-
-Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
-Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
-Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
-
-// NOTIFICATION
-Route::get('notifications/{user?}', [NotificationController::class, 'index']);
-Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
-Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
 
 /*
 |--------------------------------------------------------------------------
@@ -77,19 +54,20 @@ Route::get('/notifications/unread/{userId}', [NotificationController::class, 'un
 */
 
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);//logout
 
     Route::post('/change-password', [ManagerSettingController::class, 'changePassword']);
     Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
 
-    // ── Manager Productions ────────────────────────────────
+    // ── Manager Productions
     Route::get('/manager/productions/{factoryId}',
         [ApproveProductionController::class, 'managerProductions']);
 
     Route::post('/manager/productions/{id}/action',
         [ApproveProductionController::class, 'managerAction']);
 
-    // ── Owner Productions ──────────────────────────────────
+    // ── Owner Productions 
     Route::get('/owner/productions/{factoryId}',
         [ApproveProductionController::class, 'ownerProductions']);
 
@@ -99,12 +77,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/employees/factories',[EmployeeController::class,'factories']);
     Route::get('/employees/users',[EmployeeController::class,'users']);
     Route::get('/employees-with-shift/{factoryId}', [EmployeeController::class, 'employeesWithShiftByFactory']);
+//EMPLOYEE DASHBOARD
 
-    /*
-    |---------------------------
-    | EMPLOYEE DASHBOARD
-    |---------------------------
-    */
     Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
     Route::get('/user/profile/{id}',[EmployeeDashController::class,'userProfile']);
@@ -222,6 +196,31 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/delete_attendence/{id}', [AttendenceController::class, 'destroy'])->middleware('permission:delete attendance');
         Route::post('/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:mark attendance');
         });
+////////////////////
+        /*
+|--------------------------------------------------------------------------
+| MANAGER ROUTES
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('manager')->group(function () {
+    Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
+    Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
+    Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
+    Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
+});
+
+Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
+
+Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
+Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
+Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
+
+// NOTIFICATION
+Route::get('notifications/{user?}', [NotificationController::class, 'index']);
+Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
+Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
+///////////////////////////////////
 
     // Employee Machine Details Route
    // Machine details — scan ke baad

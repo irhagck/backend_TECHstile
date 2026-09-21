@@ -55,7 +55,7 @@ public function store(Request $request)
         'cnic'             => 'nullable|string|unique:users,cnic',
         'address'          => 'nullable|string',
         'role'             => 'required|string|exists:roles,name',
-        'employee_details' => 'nullable|string',
+      
     ]);
 
     if ($validator->fails()) {
@@ -75,7 +75,7 @@ public function store(Request $request)
                 'phone_no'         => $request->phone_no,
                 'cnic'             => $request->cnic,
                 'address'          => $request->address,
-                'employee_details' => $request->employee_details,
+           
             ]);
 
             // 2. Assign Spatie Role
@@ -144,7 +144,7 @@ public function update(Request $request, $id)
         'address'          => 'nullable|string',
     
         'role'             => 'sometimes|string|exists:roles,name', 
-        'employee_details' => 'nullable|string',
+     
     ]);
 
     $user->name             = $request->name             ?? $user->name;
@@ -153,7 +153,7 @@ public function update(Request $request, $id)
     $user->cnic             = $request->cnic             ?? $user->cnic;
     $user->address          = $request->address          ?? $user->address;
   
-    $user->employee_details = $request->employee_details ?? $user->employee_details;
+    
     //  Assign role from Spatie 
     if ($request->filled('role')) {
         $user->syncRoles([$request->role]);
@@ -168,7 +168,7 @@ public function update(Request $request, $id)
     return response()->json([
         'success' => true,
         'message' => 'User updated successfully',
-        'data'    => $user->load('roles') // ✅ roles bhi return karo
+        'data'    => $user->load('roles') //  roles bhi return karo
     ], 200);
 }
 

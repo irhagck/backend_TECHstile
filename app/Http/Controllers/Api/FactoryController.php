@@ -29,8 +29,8 @@ class FactoryController extends Controller
         $activeFactoryIds = collect();
 
         if ($recentEmployeeIds->isNotEmpty()) {
-            // In employees ka kis kis factory se link hai (Production table ke zariye)
-            $activeFactoryIds = Production::whereIn('employee_id', $recentEmployeeIds)
+            // Employee table sa factories uthana 
+            $activeFactoryIds = Employee::whereIn('id', $recentEmployeeIds)
                 ->pluck('factory_id')
                 ->unique();
         }
