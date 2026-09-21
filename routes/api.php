@@ -196,7 +196,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/delete_attendence/{id}', [AttendenceController::class, 'destroy'])->middleware('permission:delete attendance');
         Route::post('/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:mark attendance');
         });
-////////////////////
+
         /*
 |--------------------------------------------------------------------------
 | MANAGER ROUTES
@@ -220,7 +220,7 @@ Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 Route::get('notifications/{user?}', [NotificationController::class, 'index']);
 Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
 Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
-///////////////////////////////////
+
 
     // Employee Machine Details Route
    // Machine details — scan ke baad
