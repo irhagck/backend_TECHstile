@@ -184,7 +184,7 @@ class FactoryController extends Controller
         $periodUnits = $periodProductions->sum('ready_production');
 
         $todayBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
-        $periodBreakdown = ($period === 'this_week')
+        $periodBreakdown = in_array($period, ['this_week', 'today'])
             ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
             : null;
 
