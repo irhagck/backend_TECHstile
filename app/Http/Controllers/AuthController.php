@@ -16,8 +16,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-
-
+use Illuminate\Validation\Rules\Password as PasswordRule;
 class AuthController extends Controller
 {
     public function login(Request $request)
@@ -50,16 +49,10 @@ class AuthController extends Controller
         $factoryId = null;
 
         if ($role === 'manager') {
-            $factoryId = Factory::where('manager_id', $user->id)->value('id');
+            $factoryId = production::where('manager_id', $user->id)->value('factory_id');
         } elseif ($role === 'employee') {
             $factoryId = Employee::where('user_id', $user->id)->value('factory_id');
         }
-        \Log::info([
-            'user_id'    => $user->id,
-            'role'       => $role,
-            'factory_id' => $factoryId
-        ]);
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -71,7 +64,6 @@ class AuthController extends Controller
                     'phone_no'   => $user->phone_no,
                     'cnic'       => $user->cnic,
                     'address'    => $user->address,
-                    'pic'        => $user->pic,
                     'roles'      => $user->roles,
                     'role'       => $role,
                     'factory_id' => $factoryId,
@@ -164,10 +156,10 @@ class AuthController extends Controller
                 ->subject('Reset Your Password');
     });
 
-    return response()->json([
-        'message' => 'Password reset link has been sent to your email.',
-    ]);
+    return response()->json(['success' => true, 'message' => 'Password reset link has been sent to your
+    email.']);
 }
+
     public function resetPassword(Request $request)
     { 
         return view('reset_password');
@@ -180,8 +172,7 @@ public function updatePassword(Request $request)
     $request->validate([
         'email'        => ['required', 'email', 'exists:users,email'],
         'token'        => ['required', 'string'],
-        'new_password' => ['required', 'string', 'min:8', 'confirmed'],
-        // 'confirmed' expects a matching 'new_password_confirmation' field
+       'new_password' => ['required', 'string', PasswordRule::defaults(), 'confirmed'],
     ]);
 
     // Look up the reset record for this email
@@ -238,4 +229,10 @@ public function updatePassword(Request $request)
             'user'    => $request->user()->load('roles')
         ], 200);
     }
+//logout
+    public function logout(Request $request)
+{
+    $request->user()->currentAccessToken()->delete();
+    return response()->json(['success' => true, 'message' => 'Logged out']);
+}
 }

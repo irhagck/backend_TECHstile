@@ -10,10 +10,9 @@ class Employee extends Model
     protected $fillable = [
         'factory_id',
         'user_id',
-        'employee_id',
         'shift_starttime',
         'shift_endtime',
-        'timestamp',
+       
     ];
 
    

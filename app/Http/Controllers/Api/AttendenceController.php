@@ -88,5 +88,13 @@ class AttendenceController extends Controller
         'message'=>'Attendance marked successfully',
         'data'=>$attendance
     ],201);
+    $already = Attendence::where('employee_id', $request->employee_id)
+    ->where('machine_id', $request->machine_id)
+    ->where('type', 'IN')
+    ->whereDate('created_at', today())
+    ->exists();
+if ($already) {
+    return response()->json(['message' => 'Attendance already marked today'], 409);
+}
 }
 }

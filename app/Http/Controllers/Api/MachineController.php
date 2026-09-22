@@ -38,11 +38,11 @@ class MachineController extends Controller
         ->pluck('machine_id')
         ->unique();
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADD is_active TO EVERY MACHINE
-    |--------------------------------------------------------------------------
-    */
+
+   
+    //ADD is_active TO EVERY MACHINE
+    
+  
     $machines = $machines->map(function ($machine) use ($activeMachineIds) {
         $arr = $machine->toArray();
         $arr['is_active'] = $activeMachineIds->contains($machine->id);
