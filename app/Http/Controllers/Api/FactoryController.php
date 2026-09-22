@@ -179,10 +179,10 @@ class FactoryController extends Controller
         $periodUnits = $periodProductions->sum('ready_production');
 
         // ✅ Pipeline breakdown — sirf Today aur This Week ke liye (history me sirf approved dikhta hai)
-        $todayBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
-        $periodBreakdown = in_array($period, ['this_week', 'today'])
-            ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
-            : null;
+        $periodBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
+        // $periodBreakdown = in_array($period, ['this_week', 'today'])
+        //     ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
+        //     : null;
 
         return response()->json([
             "status"          => true,

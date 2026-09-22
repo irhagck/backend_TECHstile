@@ -173,7 +173,7 @@ class ApproveProductionController extends Controller
     ]);
 }
     // Owner get all productions for factory (period filter ke saath)
-    public function ownerProductions(Request $request, $factoryId)
+public function ownerProductions(Request $request, $factoryId)
     {
         $factory = Factory::find($factoryId);
         if (!$factory) {
@@ -260,19 +260,47 @@ class ApproveProductionController extends Controller
     /**
      * Period key -> [start, end] Carbon range. Shared by owner + manager.
      */
-    private function periodRange(string $period): array
+    private function periodRange($period)
     {
-        $now = Carbon::now();
+        $weekStartDay = 1; // Monday. If you have factory-based week_start_day here too, pass it in instead.
 
-        return match ($period) {
-            'this_week'      => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
-            'previous_week'  => [$now->copy()->subWeek()->startOfWeek(), $now->copy()->subWeek()->endOfWeek()],
-            'this_month'     => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            'previous_month' => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
-            'this_year'      => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
-            'previous_year'  => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear()],
-            default          => [null, null],
-        };
+        switch ($period) {
+            case 'today':
+                return [Carbon::today(), Carbon::today()->endOfDay()];
+
+            case 'this_week':
+                return [
+                    Carbon::now()->startOfWeek($weekStartDay),
+                    Carbon::now()->startOfWeek($weekStartDay)->addDays(6)->endOfDay(),
+                ];
+
+            case 'previous_week':
+                return [
+                    Carbon::now()->startOfWeek($weekStartDay)->subWeek(),
+                    Carbon::now()->startOfWeek($weekStartDay)->subWeek()->addDays(6)->endOfDay(),
+                ];
+
+            case 'this_month':
+                return [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
+
+            case 'previous_month':
+                return [
+                    Carbon::now()->subMonth()->startOfMonth(),
+                    Carbon::now()->subMonth()->endOfMonth(),
+                ];
+
+            case 'this_year':
+                return [Carbon::now()->startOfYear(), Carbon::now()->endOfYear()];
+
+            case 'previous_year':
+                return [
+                    Carbon::now()->subYear()->startOfYear(),
+                    Carbon::now()->subYear()->endOfYear(),
+                ];
+
+            default:
+                return [null, null];
+        }
     }
 
     //Owner approve or reject 
