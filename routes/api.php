@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Api\FactoryController;
@@ -30,8 +29,6 @@ use App\Http\Controllers\Api\PaymentController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
-// Route::post('/login-email', [AuthController::class, 'email']);
-
 Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::get('/reset-password', [AuthController::class, 'resetPassword']);
