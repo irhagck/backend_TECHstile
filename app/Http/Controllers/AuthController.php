@@ -16,8 +16,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-
-
+use Illuminate\Validation\Rules\Password as PasswordRule;
 class AuthController extends Controller
 {
     public function login(Request $request)
@@ -173,8 +172,7 @@ public function updatePassword(Request $request)
     $request->validate([
         'email'        => ['required', 'email', 'exists:users,email'],
         'token'        => ['required', 'string'],
-        'new_password' => ['required', 'string', 'min:8', 'confirmed'],
-        // 'confirmed' expects a matching 'new_password_confirmation' field
+       'new_password' => ['required', 'string', PasswordRule::defaults(), 'confirmed'],
     ]);
 
     // Look up the reset record for this email

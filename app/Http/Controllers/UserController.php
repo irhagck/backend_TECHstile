@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 class UserController extends Controller
 {
         public function managers()
@@ -50,7 +51,7 @@ public function store(Request $request)
     $validator = Validator::make($request->all(), [
         'name'             => 'required|string|max:255',
         'email'            => 'required|email|unique:users,email',
-        'password'         => 'required|string|min:6',
+       'password'         => ['required', 'string', PasswordRule::defaults()],
         'phone_no'         => 'nullable|string',
         'cnic'             => 'nullable|string|unique:users,cnic',
         'address'          => 'nullable|string',
@@ -138,7 +139,7 @@ public function update(Request $request, $id)
     $request->validate([
         'name'             => 'sometimes|string|max:255',
         'email'            => 'sometimes|email|unique:users,email,' . $id,
-        'password'         => 'sometimes|min:6',
+        'password'         => ['sometimes', 'nullable', PasswordRule::defaults()],
         'phone_no'         => 'sometimes|string|max:20',
         'cnic'             => 'sometimes|string|max:20|unique:users,cnic,' . $id,
         'address'          => 'nullable|string',
