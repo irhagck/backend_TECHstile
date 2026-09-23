@@ -72,29 +72,21 @@ class AttendenceController extends Controller
 
 // employee attendance function
    public function markAttendance(Request $request)
-{
-    $request->validate([
-        'employee_id'=>'required|integer',
-        'machine_id'=>'required|integer',
-    ]);
+    {
+        $request->validate([
+            'employee_id'=>'required|integer',
+            'machine_id'=>'required|integer',
+        ]);
 
-    $attendance = Attendence::create([
-        'employee_id'=>$request->employee_id,
-        'machine_id'=>$request->machine_id,
-        'type'=>'IN',
-    ]);
+        $attendance = Attendence::create([
+            'employee_id'=>$request->employee_id,
+            'machine_id'=>$request->machine_id,
+            'type'=>'IN',
+        ]);
 
-    return response()->json([
-        'message'=>'Attendance marked successfully',
-        'data'=>$attendance
-    ],201);
-    $already = Attendence::where('employee_id', $request->employee_id)
-    ->where('machine_id', $request->machine_id)
-    ->where('type', 'IN')
-    ->whereDate('created_at', today())
-    ->exists();
-if ($already) {
-    return response()->json(['message' => 'Attendance already marked today'], 409);
-}
-}
+        return response()->json([
+            'message'=>'Attendance marked successfully',
+            'data'=>$attendance
+        ],201);
+    }
 }

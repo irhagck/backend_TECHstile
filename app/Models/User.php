@@ -18,7 +18,7 @@ class User extends Authenticatable
      'phone_no',
      'cnic',
      'address',
-     'factory_id'
+     
     ];
 
     protected $hidden = [
@@ -30,11 +30,7 @@ class User extends Authenticatable
     {
     return $this->belongsTo(Factory::class);
     }
-    public function userRole()
-    {
-        return $this->belongsTo(Role::class, 'role_id');
-    }
-
+    
     public function notifications()
     {
         return $this->hasMany(Notification::class, 'user_id');

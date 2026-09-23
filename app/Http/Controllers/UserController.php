@@ -192,19 +192,5 @@ public function update(Request $request, $id)
             'message' => 'User deleted successfully'
         ], 200);
     }
-    public function employeesInTable()
-{
-    // only that users that is occure in employees table
-    $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
-
-    $users = User::role('employee')
-                 ->whereIn('id', $employeeUserIds)
-                 ->select('id', 'name', 'phone_no', 'email')
-                 ->get();
-
-    return response()->json([
-        'success' => true,
-        'data' => $users
-    ]);
-}
+    
 }

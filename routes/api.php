@@ -29,7 +29,6 @@ use App\Http\Controllers\Api\PaymentController;
 */
 
 Route::post('/login', [AuthController::class, 'login']);
-Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::get('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/update-password', [AuthController::class, 'updatePassword']);
@@ -40,8 +39,6 @@ Route::post('/update-password', [AuthController::class, 'updatePassword']);
 |--------------------------------------------------------------------------
 */
 
-Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
-Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
 
 
 /*
@@ -52,9 +49,12 @@ Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);//logout
+    Route::get('/employee/profile/{id}', [EmployeeDashController::class, 'profile']);
+    Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
+    Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
+    
 
     Route::post('/change-password', [ManagerSettingController::class, 'changePassword']);
-    Route::post('/manager/change-password', [ManagerSettingController::class, 'changePassword']);
     Route::post('/assign-machines', [MachineAssignmentController::class, 'assignMachines']);
 
     // ── Manager Productions
@@ -200,83 +200,79 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('manager')->group(function () {
-    Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
-    Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
-    Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
-    Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
-});
+    Route::prefix('manager')->group(function () {
+        Route::get('dashboard/{factoryId}', [ManagerController::class, 'dashboard']);
+        Route::get('machines/{factoryId}', [ManagerController::class, 'machines']);
+        Route::get('employees/{factoryId}', [ManagerController::class, 'employees']);
+        Route::get('payments/{factoryId}', [ManagerController::class, 'payments']);
+    });
 
-Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
+    Route::get('/manager/employee-details/{employeeId}', [ManagerController::class, 'employeeDetails']);
 
-Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
-Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
-Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
+    Route::put('/manager/profile/{id}', [ManagerSettingController::class, 'updateProfile']);
+    Route::get('/manager/profile/{userId}', [ManagerController::class, 'profile']);
+    Route::get('/owner/profile/{userId}', [OwnerController::class, 'profile']);
 
 // NOTIFICATION
-Route::get('notifications/{user?}', [NotificationController::class, 'index']);
-Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
-Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
+    Route::get('notifications/{user?}', [NotificationController::class, 'index']);
+    Route::post('notifications/read/{id}', [NotificationController::class, 'read']);
+    Route::get('/notifications/unread/{userId}', [NotificationController::class, 'unreadCount']);
 
 
     // Employee Machine Details Route
-   // Machine details — scan ke baad
-Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'machineDetails']) ->middleware('permission:view machines');
+    // Machine details — scan ke baad
+    Route::get('/employee/machine-details/{id}', [EmployeeDashController::class, 'machineDetails']) ->middleware('permission:view machines');
 
-Route::prefix('productions')->group(function () {
-// Production enter karna
-Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
-
-
-  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');
+    Route::prefix('productions')->group(function () {
+   // Production enter karna
+    Route::post('/productions/add_production',    [ProductionController::class, 'store'])->middleware('permission:create productions');
 
 
-  Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:approve production');
+    Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:verify production');
 
 
-   Route::get('/productions/approved',[ProductionController::class,'approve'])->middleware('permission:view productions');
+    Route::get('/productions/pending',[ProductionController::class,'pending'])->middleware('permission:approve production');
 
-   Route::get('/productions/rejected',[ProductionController::class,'reject'])->middleware('permission:view productions');
+
+    Route::get('/productions/approved',[ProductionController::class,'approve'])->middleware('permission:view productions');
+
+    Route::get('/productions/rejected',[ProductionController::class,'reject'])->middleware('permission:view productions');
 
     Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
-     Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
+    Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
 
     // Attendance mark karna
     Route::post('/attendence/mark_attendance', [AttendenceController::class, 'markAttendance'])->middleware('permission:mark attendance');
 
-     // Attendance details
-     Route::get('/attendence/employee_attendance/{employee_id}', [AttendenceController::class, 'employeeAttendance'])->middleware('permission:view attendance');
+    // Attendance details
+    Route::get('/attendence/employee_attendance/{employee_id}', [AttendenceController::class, 'employeeAttendance'])->middleware('permission:view attendance');
 
-     // Employee Dashboard
+    // Employee Dashboard
 
-Route::put(
-'/productions/approve/{id}',
-[ProductionController::class,'approve']
-);
+    Route::put('/productions/approve/{id}',[ProductionController::class,'approve']);
 
-Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
+    Route::get('/employee/dashboard/{id}', [EmployeeDashController::class, 'dashboard']);
 
 });
 
 
-Route::put(
-'/productions/reject/{id}',[ProductionController::class,'reject']);
-// Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
-//assign production to employee using unique batch_id
-Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
-Route::get('payments/view-payments/{factoryId}', [ProductionController::class, 'viewPayments']);
-Route::post('payments/add-payments/{factoryId}', [PaymentController::class, 'store']);
+    Route::put('/productions/reject/{id}',[ProductionController::class,'reject']);
+    // Route::get('/employee/profile/{id}',[EmployeeDashController::class, 'profile'])->middleware('permission:view profile');
+    //assign production to employee using unique batch_id
+    Route::post('/assign-production', [ProductionController::class, 'assignProduction'])->middleware('permission:create productions');
+    Route::get('payments/view-payments/{factoryId}', [ProductionController::class, 'viewPayments']);
+    Route::post('payments/add-payments/{factoryId}', [PaymentController::class, 'store']);
 
 
-//Payments
-Route::get('/payments', [PaymentController::class, 'index']);          // list (optional ?factory_id=)
-Route::post('/payments', [PaymentController::class, 'store']);          
-Route::get('/payments/{payment}', [PaymentController::class, 'show']);
-Route::put('/payments/{payment}', [PaymentController::class, 'update']);
-Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
+    //Payments
+    Route::get('/payments', [PaymentController::class, 'index']);          // list (optional ?factory_id=)
+    Route::post('/payments', [PaymentController::class, 'store']);          
+    Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+    Route::put('/payments/{payment}', [PaymentController::class, 'update']);
+    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
 
-//employee history route
-Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
+    //employee history route
+    Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
 
 }); // auth:sanctum group end

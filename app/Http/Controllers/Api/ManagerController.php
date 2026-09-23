@@ -419,13 +419,13 @@ class ManagerController extends Controller
 
 
 
-    $factoryId = Production::where(
+    $factoryId = Factory::where(
 
         'manager_id',
 
         $userId
 
-    )->value('factory_id');
+    )->value('id');
 
 
 

@@ -175,6 +175,7 @@ class ProductionController extends Controller
                         'title'         => 'Production Running Low',
                         'message'       => "Machine \"$machineName\" ($varietyType) has only $newRemaining meters remaining — nearing the total length limit.",
                         'type'          => 'low_remaining_alert',
+                        
                     ]);
                 }
             } catch (\Exception $e) {

@@ -41,7 +41,7 @@ class ApproveProductionController extends Controller
         // ---- Period filter (?period=this_week etc.) ----
         $period = $request->query('period');
         if ($period) {
-            [$start, $end] = $this->periodRange($period);
+            [$start, $end] = $this->periodRange($period,$factoryId);
             if ($start && $end) {
                 $query->whereBetween('created_at', [$start, $end]);
             }
@@ -191,7 +191,7 @@ public function ownerProductions(Request $request, $factoryId)
 
         $period = $request->query('period');
         if ($period) {
-            [$start, $end] = $this->periodRange($period);
+            [$start, $end] = $this->periodRange($period,$factoryId);
             if ($start && $end) {
                 $query->whereBetween('created_at', [$start, $end]);
             }
@@ -260,9 +260,11 @@ public function ownerProductions(Request $request, $factoryId)
     /**
      * Period key -> [start, end] Carbon range. Shared by owner + manager.
      */
-    private function periodRange($period)
+    private function periodRange($period,$factoryId)
     {
-        $weekStartDay = 1; // Monday. If you have factory-based week_start_day here too, pass it in instead.
+        $factory = Factory::find($factoryId);
+        $weekStartDay = (int) ($factory->week_start_day ?? 1);
+    
 
         switch ($period) {
             case 'today':

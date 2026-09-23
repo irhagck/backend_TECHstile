@@ -15,12 +15,11 @@ class Factory extends Model
         'city',
         'week_start_day',
     ];
-
-//     public function manager()
-// {
-//     return $this->belongsTo(
-//         User::class,
-//         'manager_id'
-//     );
-// }
+    public function manager()
+    {
+        return $this->belongsTo(
+            User::class,
+            'manager_id'
+        );
+    }
 }

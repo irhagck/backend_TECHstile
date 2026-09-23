@@ -27,19 +27,14 @@ class Production extends Model
         'earned_amount',
     ];
     public function factory() {
-    return $this->belongsTo(Factory::class);
-}
-    public function employee() {   // Define the relationship with the Employee model
-    return $this->belongsTo(Employee::class);
-}
+     return $this->belongsTo(Factory::class);
+    }
 
-public function manager() {
-    return $this->belongsTo(User::class, 'manager_id');
-}
+    public function manager() {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
 
-public function machine() {
-    return $this->belongsTo(Machine::class);
-}
+
   public function machineemploye()
 {
     return $this->belongsTo(Machine::class, 'machine_id', 'id');

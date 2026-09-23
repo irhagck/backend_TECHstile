@@ -49,7 +49,7 @@ class AuthController extends Controller
         $factoryId = null;
 
         if ($role === 'manager') {
-            $factoryId = production::where('manager_id', $user->id)->value('factory_id');
+            $factoryId = Production::where('manager_id', $user->id)->value('factory_id');
         } elseif ($role === 'employee') {
             $factoryId = Employee::where('user_id', $user->id)->value('factory_id');
         }
