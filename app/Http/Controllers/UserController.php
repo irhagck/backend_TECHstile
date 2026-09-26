@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Production;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 class UserController extends Controller
+
 {
         public function managers()
 {
@@ -174,7 +176,7 @@ public function update(Request $request, $id)
 }
 
     // Delete User
-    public function destroy($id)
+        public function destroy($id)
     {
         $user = User::find($id);
 
@@ -183,6 +185,15 @@ public function update(Request $request, $id)
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
+        }
+
+        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+
+        if ($employee) {
+            DB::table('productions')->where('employee_id', $employee->id)->delete();
+            DB::table('payments')->where('employee_id', $employee->id)->delete();
+
+            DB::table('employees')->where('id', $employee->id)->delete();
         }
 
         $user->delete();

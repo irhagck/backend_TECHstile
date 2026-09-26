@@ -117,6 +117,7 @@ class ProductionController extends Controller
     $actingUser = $request->user();
     $enteredByOwner = $actingUser && method_exists($actingUser, 'hasRole') && $actingUser->hasRole('owner');
     $initialStatus = $enteredByOwner ? 4 : 1;
+    
 
         $production = Production::create([
             'machine_id' => $request->machine_id,
