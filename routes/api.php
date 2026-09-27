@@ -51,7 +51,7 @@ Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum'])->prefix('backups')->group(function () {
-    // Route::get('/', [BackupController::class, 'index']);
+    Route::get('/', [BackupController::class, 'index']);
     Route::post('/', [BackupController::class, 'store']);
     Route::post('/toggle', [BackupController::class, 'toggle']);
     Route::get('/{backup}/download', [BackupController::class, 'download']);
