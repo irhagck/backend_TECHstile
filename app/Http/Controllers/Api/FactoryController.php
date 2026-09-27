@@ -252,6 +252,8 @@ class FactoryController extends Controller
         return [
             'employee_added'   => $inRange->where('status', 1)->sum('ready_production'),
             'manager_approved' => $inRange->where('status', 2)->sum('ready_production'),
+            'owner_approved'   => $inRange->where('status', 4)->sum('ready_production'),
+
         ];
     }
 

@@ -117,6 +117,7 @@ class ProductionController extends Controller
     $actingUser = $request->user();
     $enteredByOwner = $actingUser && method_exists($actingUser, 'hasRole') && $actingUser->hasRole('owner');
     $initialStatus = $enteredByOwner ? 4 : 1;
+    
 
         $production = Production::create([
             'machine_id' => $request->machine_id,
@@ -175,6 +176,7 @@ class ProductionController extends Controller
                         'title'         => 'Production Running Low',
                         'message'       => "Machine \"$machineName\" ($varietyType) has only $newRemaining meters remaining — nearing the total length limit.",
                         'type'          => 'low_remaining_alert',
+                        
                     ]);
                 }
             } catch (\Exception $e) {

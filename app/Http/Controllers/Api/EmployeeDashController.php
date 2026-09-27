@@ -256,7 +256,7 @@ public function profile(Request $request, $id)
 
     ->where('manager_id',$managerId)
 
-    ->where('status', 2)
+    ->whereIn('status', [2, 4])
 
     ->whereBetween('created_at', [
         Carbon::now()->subDays(7),

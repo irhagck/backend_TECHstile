@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Production;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 class UserController extends Controller
+
 {
         public function managers()
 {
@@ -174,7 +176,7 @@ public function update(Request $request, $id)
 }
 
     // Delete User
-    public function destroy($id)
+        public function destroy($id)
     {
         $user = User::find($id);
 
@@ -185,6 +187,15 @@ public function update(Request $request, $id)
             ], 404);
         }
 
+        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+
+        if ($employee) {
+            DB::table('productions')->where('employee_id', $employee->id)->delete();
+            DB::table('payments')->where('employee_id', $employee->id)->delete();
+
+            DB::table('employees')->where('id', $employee->id)->delete();
+        }
+
         $user->delete();
 
         return response()->json([
@@ -192,19 +203,5 @@ public function update(Request $request, $id)
             'message' => 'User deleted successfully'
         ], 200);
     }
-    public function employeesInTable()
-{
-    // only that users that is occure in employees table
-    $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
-
-    $users = User::role('employee')
-                 ->whereIn('id', $employeeUserIds)
-                 ->select('id', 'name', 'phone_no', 'email')
-                 ->get();
-
-    return response()->json([
-        'success' => true,
-        'data' => $users
-    ]);
-}
+    
 }

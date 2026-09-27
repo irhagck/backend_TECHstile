@@ -10,21 +10,8 @@ use App\Models\Employee;
 
 class MachineAssignmentController extends Controller
 {
-    // get employees that can be assigned machines 
-    public function getAssignableEmployees()
-    {
-        $employeeUserIds = \App\Models\Employee::pluck('user_id')->unique();
+    
 
-        $users = User::role('employee')
-                     ->whereIn('id', $employeeUserIds)
-                     ->select('id', 'name', 'phone_no', 'email')
-                     ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $users
-        ]);
-    }
 
     // assign machines to an employee (create entries in production table)
     public function assignMachines(Request $request)
