@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class ManagerSettingController extends Controller
 {
@@ -31,10 +32,10 @@ class ManagerSettingController extends Controller
 
     public function changePassword(Request $request)
     {
-        $request->validate([
-            'current_password' => 'required',
-            'new_password'     => 'required|min:6',
-        ]);
+       $request->validate([
+    'current_password' => 'required',
+    'new_password'     => ['required', PasswordRule::defaults(), 'different:current_password'],
+]);
 
         $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
 
