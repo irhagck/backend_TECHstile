@@ -43,7 +43,7 @@ Route::post('/update-password', [AuthController::class, 'updatePassword']);
 Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
 Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
  Route::get('/backups', [BackupController::class, 'index']);
-    // Route::post('/backups', [BackupController::class, 'store']);
+    Route::post('/backups', [BackupController::class, 'store']);
 
 /*
 |--------------------------------------------------------------------------
