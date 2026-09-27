@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\FactoryUsersController;
 use App\Http\Controllers\Api\ManagerSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\BackupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,13 +43,21 @@ Route::post('/update-password', [AuthController::class, 'updatePassword']);
 
 Route::get('/factory-users/{factoryId}', [FactoryUsersController::class, 'getUsersByFactory']);
 Route::get('/employees-by-factory/{factoryId}', [FactoryUsersController::class, 'getEmployeesByFactory']);
-
+ Route::get('/backups', [BackupController::class, 'index']);
+    // Route::post('/backups', [BackupController::class, 'store']);
 
 /*
 |--------------------------------------------------------------------------
-| AUTHENTICATED ROUTES
+| AUTHENTICATED / BACKUP ROUTES
 |--------------------------------------------------------------------------
 */
+Route::middleware(['auth:sanctum'])->prefix('backups')->group(function () {
+    // Route::get('/', [BackupController::class, 'index']);
+    Route::post('/', [BackupController::class, 'store']);
+    Route::post('/toggle', [BackupController::class, 'toggle']);
+    Route::get('/{backup}/download', [BackupController::class, 'download']);
+    Route::post('/{backup}/restore', [BackupController::class, 'restore']);
+});
 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);//logout

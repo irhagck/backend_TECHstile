@@ -156,7 +156,7 @@ class AuthController extends Controller
                 ->subject('Reset Your Password');
     });
 
-    return response()->json(['success' => true, 'message' => 'Password reset link has been sent to your
+   return response()->json(['success' => true, 'message' => 'Password reset link has been sent to your
     email.']);
 }
 
