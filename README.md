@@ -1,59 +1,159 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+  # 🧵 TechStile Backend API
 
-## About Laravel
+  <p align="center">
+    <strong>RESTful API & Industrial Engine for TechStile Smart Textile Factory Management System</strong>
+  </p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+  <p align="center">
+    <a href="https://laravel.com/"><img src="https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel" /></a>
+    <a href="https://www.php.net/"><img src="https://img.shields.io/badge/PHP-8.2+-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP" /></a>
+    <a href="https://www.mysql.com/"><img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL" /></a>
+    <a href="https://laravel.com/docs/sanctum"><img src="https://img.shields.io/badge/Auth-Sanctum-orange?style=for-the-badge" alt="Sanctum" /></a>
+    <a href="https://spatie.be/docs/laravel-permission"><img src="https://img.shields.io/badge/RBAC-Spatie_Permissions-blue?style=for-the-badge" alt="Spatie" /></a>
+  </p>
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+</div>
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 📌 About TechStile Backend
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+The **TechStile Backend** powers the **TechStile Production Management System**, serving as the central RESTful API gateway and business logic controller for textile mills, looms, and manufacturing plants. It handles role-based authorization, machine inventory management, QR-code data binding, real-time batch production approvals, attendance records, payroll calculations, and database backup routines.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 🏗️ Architecture & Data Relations
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```mermaid
+erDiagram
+    USERS ||--o{ FACTORIES : manages
+    USERS ||--o{ ROLES : assigned
+    FACTORIES ||--|{ MACHINES : contains
+    FACTORIES ||--|{ EMPLOYEES : employs
+    MACHINES ||--o{ PRODUCTIONS : generates
+    EMPLOYEES ||--o{ PRODUCTIONS : logs
+    EMPLOYEES ||--o{ ATTENDANCES : clocks
+    EMPLOYEES ||--o{ PAYMENTS : receives
+    FACTORIES ||--o{ BACKUPS : snapshots
 
-### Premium Partners
+    FACTORIES {
+        int id PK
+        string name
+        string location
+        string week_start_day
+        int manager_id FK
+    }
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+    MACHINES {
+        int id PK
+        int factory_id FK
+        string machine_code
+        string qr_code
+        string status
+    }
 
-## Contributing
+    PRODUCTIONS {
+        int id PK
+        int factory_id FK
+        int machine_id FK
+        int employee_id FK
+        string batch_id
+        decimal quantity
+        string status
+        decimal alert_threshold
+    }
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+    EMPLOYEES {
+        int id PK
+        int user_id FK
+        int factory_id FK
+        string shift
+        decimal piece_rate
+    }
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## ⚙️ Core Modules & Endpoints
 
-## Security Vulnerabilities
+### 1. 🔐 Authentication & Profile
+- `POST /api/login` — User authentication & Sanctum token issue
+- `POST /api/forgot-password` — Password recovery dispatch
+- `POST /api/change-password` — Security credential update
+- `GET  /api/user/profile/{id}` — Retrieve profile & role metadata
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 2. 🏭 Multi-Factory & Role Management (Owner Only)
+- `GET    /api/factories/allfactories` — List all registered factories
+- `POST   /api/factories/addfactory` — Register a new factory plant
+- `GET    /api/factories/dashboard/{id}` — Factory performance metrics
+- `GET    /api/roles/all` & `POST /api/roles/add` — Role definition (Spatie RBAC)
+- `POST   /api/permissions/sync` — Synchronize permissions across roles
 
-## License
+### 3. 🧵 Machine Inventory & QR Assignment
+- `GET    /api/machines/all/{factoryId}` — List machines with operational status
+- `POST   /api/machines/add_machine` — Register industrial machine & generate QR
+- `POST   /api/assign-machines` — Allocate machines to operators/shifts
+- `GET    /api/employee/machine-details/{id}` — Query machine details via QR scan
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 4. 📊 Production & Approval Pipeline
+- `POST   /api/productions/add_production` — Operator logs new production batch
+- `GET    /api/manager/productions/{factoryId}` — Manager queue of pending batches
+- `POST   /api/manager/productions/{id}/action` — Manager approval/rejection
+- `GET    /api/owner/productions/{factoryId}` — Owner oversight and audit
+- `POST   /api/owner/productions/{id}/action` — Owner final authorization
+
+### 5. 👥 Attendance, Wages & Payments
+- `POST   /api/attendence/mark_attendance` — Shift clock-in/out
+- `GET    /api/employees-with-shift/{factoryId}` — Active shift roster
+- `GET    /api/employees/{id}/earned-amount` — Calculated wages from approved batches
+- `GET    /api/payments/view-payments/{factoryId}` — Payment disbursements
+
+### 6. 🗄️ System Backup & Settings
+- `GET    /api/backups` — List database snapshots
+- `POST   /api/backups` — Trigger immediate backup snapshot
+- `POST   /api/backups/toggle` — Automated backup configuration
+- `POST   /api/backups/{id}/restore` — Restore point recovery
+
+---
+
+## 🚀 Setup & Installation
+
+### 1. Clone & Install Dependencies
+```bash
+cd techbackendirha
+composer install
+```
+
+### 2. Configure Environment
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+Configure your `.env` database parameters:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=techbackendirha
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### 3. Run Migrations & Seeders
+```bash
+php artisan migrate --seed
+```
+
+### 4. Run API Server
+```bash
+php artisan serve
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
