@@ -25,7 +25,7 @@ class ManagerController extends Controller
             ], 404);
         }
 
-        // ✅ Saari productions (har status) fetch karo — history ke liye sirf owner-approved
+        //..Saari productions (har status) fetch karo — history ke liye sirf owner-approved
         //    (status 4) use hongi, lekin Today / This Week ke liye pipeline breakdown bhi chahiye
         //    (employee ne kitna add kiya, manager ne kitna approve kiya, owner ne kitna approve kiya).
         $allProductions = Production::where('factory_id', $factoryId)->get();
@@ -54,7 +54,7 @@ class ManagerController extends Controller
             return $p->created_at >= $rangeStart && $p->created_at <= $rangeEnd;
         });
 
-        // ✅ Variety ke hisaab se group karo aur ready_production sum karo
+        //..Variety ke hisaab se group karo aur ready_production sum karo
         $varietiesGrouped = $periodProductions
             ->filter(function ($p) {
                 return !empty($p->variety_type);
@@ -79,7 +79,7 @@ class ManagerController extends Controller
 
         $periodUnits = $periodProductions->sum('ready_production');
 
-        // ✅ Pipeline breakdown — sirf Today aur This Week ke liye (history me sirf approved dikhta hai)
+        //..Pipeline breakdown — sirf Today aur This Week ke liye (history me sirf approved dikhta hai)
         $todayBreakdown = $this->pipelineBreakdown($allProductions, $todayStart, $todayEnd);
         $periodBreakdown = ($period === 'this_week')
             ? $this->pipelineBreakdown($allProductions, $rangeStart, $rangeEnd)
@@ -101,12 +101,12 @@ class ManagerController extends Controller
             "today_date"      => Carbon::today()->toDateString(),
             "today_day_name"  => Carbon::today()->format('l'),
 
-            // ✅ "ready_production" = asal ban chuki (owner-approved) production
+            //.."ready_production" = asal ban chuki (owner-approved) production
             "today_units"     => $todayUnits,
             "period_units"    => $periodUnits,
             "weekly_units"    => $periodUnits, // For backward compatibility with existing views
 
-            // ✅ Employee-added / Manager-approved / Owner-approved breakdown
+            //..Employee-added / Manager-approved / Owner-approved breakdown
             "today_breakdown"  => $todayBreakdown,
             "period_breakdown" => $periodBreakdown,
 
@@ -126,7 +126,7 @@ class ManagerController extends Controller
         ]);
     }
 
-    // ✅ Manager bhi apni factory ka "week" kis din se start hota hai woh set/update kar sake
+    //..Manager bhi apni factory ka "week" kis din se start hota hai woh set/update kar sake
     public function updateWeekStartDay(Request $request, $factoryId)
     {
         $factory = Factory::find($factoryId);
