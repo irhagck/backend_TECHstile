@@ -29,11 +29,11 @@ class ProductionController extends Controller
 {
     \Log::info('STORE HIT');
     $request->validate([
-        'machine_id' => 'required|integer',
-        'user_id' => 'required|integer', 
-        'factory_id' => 'required|integer',
-        'ready_production' => 'required|numeric',
-        'waste_production' => 'required|numeric',
+        'machine_id'       => 'required|integer',
+        'user_id'          => 'required|integer',
+        'factory_id'       => 'required|integer',
+        'ready_production' => 'required|numeric|gt:0',
+        'waste_production' => 'required|numeric|min:0',
     ]);
 
     $factory = Factory::find($request->factory_id);
@@ -440,12 +440,11 @@ class ProductionController extends Controller
     public function assignProduction(Request $request)
     {
         $request->validate([
-            'machine_id' => 'required|integer',
-            'variety_type' => 'required|string',
-            'total_length' => 'required|numeric',
-            'amount_per_meter' => 'required|numeric',
-            //  owner gets notified once a batch's remaining length drops to this
-            'alert_threshold' => 'nullable|numeric|min:0',
+            'machine_id'       => 'required|integer',
+            'variety_type'     => 'required|string|exists:varieties,name',
+            'total_length'     => 'required|numeric|gt:0',
+            'amount_per_meter' => 'required|numeric|gt:0',
+            'alert_threshold'  => 'nullable|numeric|min:0|lte:total_length',
         ]);
 
         // assign batch to all employes that work on this machine 

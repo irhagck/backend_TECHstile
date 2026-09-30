@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\ManagerSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\VarietyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -287,3 +288,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/employee/history/{id}',[EmployeeDashController::class,'employeeHistory'])->middleware('permission:view productions');
 
 }); // auth:sanctum group end
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/varieties', [VarietyController::class, 'index']);
+    Route::post('/varieties', [VarietyController::class, 'store']);
+    Route::delete('/varieties/{id}', [VarietyController::class, 'destroy']);
+});
