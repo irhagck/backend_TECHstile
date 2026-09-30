@@ -28,6 +28,7 @@ class ProductionController extends Controller
     public function store(Request $request)
     {
         \Log::info('STORE HIT');
+
         $request->validate([
             'machine_id'       => 'required|integer',
             'user_id'          => 'required|integer',
@@ -99,11 +100,11 @@ class ProductionController extends Controller
 
         if ($newRemaining < 0) {
             return response()->json([
-                "message" => "Production limit exceeded — sirf $previousRemaining hi remaining hai (dono shifts mila kar)"
+                'message' => "Production limit exceeded — sirf $previousRemaining hi remaining hai (dono shifts mila kar)"
             ], 400);
         }
 
-        // Alert threshold batch assign hote waqt set hui then is batch ki har row par carry hoti hai
+        // Alert threshold batch assign hote waqt set hui, phir is batch ki har row par carry hoti hai
         $alertThreshold = $ownLatest->alert_threshold;
         $alertAlreadySent = Production::where('machine_id', $request->machine_id)
             ->where('batch_id', $batchId)
@@ -113,9 +114,10 @@ class ProductionController extends Controller
         $shouldSendAlert = $alertThreshold !== null
             && $newRemaining <= $alertThreshold
             && !$alertAlreadySent;
-        $actingUser = $request->user();
+
+        $actingUser     = $request->user();
         $enteredByOwner = $actingUser && method_exists($actingUser, 'hasRole') && $actingUser->hasRole('owner');
-        $initialStatus = $enteredByOwner ? 4 : 1;
+        $initialStatus  = $enteredByOwner ? 4 : 1;
 
         $production = Production::create([
             'machine_id'  => $request->machine_id,
@@ -142,8 +144,9 @@ class ProductionController extends Controller
             'status' => $initialStatus,
         ]);
 
-        $machineName = Machine::where('id', $request->machine_id)->value('machine_name');
+        $machineName  = Machine::where('id', $request->machine_id)->value('machine_name');
         $employeeName = $employee->user?->name ?? 'Employee';
+
         if (!$enteredByOwner) {
             try {
                 $owners = User::role('owner')->get();
@@ -208,6 +211,12 @@ class ProductionController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
+        // Negative values na jaa saken
+        $request->validate([
+            'ready_production' => 'sometimes|numeric|min:0',
+            'waste_production' => 'sometimes|numeric|min:0',
+        ]);
+
         $production->update($request->all());
 
         return response()->json([
@@ -246,7 +255,7 @@ class ProductionController extends Controller
 
         $managerName = null;
         if ($factory->manager_id) {
-            $manager = User::find($factory->manager_id);
+            $manager     = User::find($factory->manager_id);
             $managerName = $manager?->name;
         }
 
@@ -255,20 +264,16 @@ class ProductionController extends Controller
             ->orderBy('employee_id')
             ->orderBy('machine_id')
             ->orderByDesc('created_at');
-        info($authUser);
 
-        // ROLE BASED ACCESS CONTROL
         if ($authUser) {
             if ($authUser->hasRole('owner')) {
                 // Admin full access, no restriction
-
             } elseif ($authUser->hasRole('manager')) {
                 if ($factory->manager_id && (int) $factory->manager_id !== (int) $authUser->id) {
                     return response()->json([
                         'message' => 'Unauthorized: You are not the manager of this factory.'
                     ], 403);
                 }
-
             } elseif ($authUser->hasRole('employee')) {
                 $employee = Employee::where('user_id', $authUser->id)->first();
 
@@ -282,7 +287,6 @@ class ProductionController extends Controller
 
         $records = $recordsQuery->get();
 
-        // Get total paid amount for each employee
         $employeeIds = $records->pluck('employee_id')->filter()->unique();
 
         $paidAmounts = Payment::whereIn('employee_id', $employeeIds)
@@ -290,36 +294,19 @@ class ProductionController extends Controller
             ->groupBy('employee_id')
             ->pluck('total_paid', 'employee_id');
 
-        // Individual payment records, so the frontend can show the date each
-        // payment was made (not just the aggregated total).
         $paymentRecords = Payment::whereIn('employee_id', $employeeIds)
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('employee_id');
 
-        // Fetch all machine names in a single query
         $machineIds = $records->pluck('machine_id')->filter()->unique();
-        $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
+        $machines   = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
 
-        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use (
-            $machines,
-            $factoryName,
-            $managerName,
-            $paidAmounts,
-            $paymentRecords
-        ) {
-            $employee = Employee::find($employeeId);
+        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use ($machines, $factoryName, $managerName, $paidAmounts, $paymentRecords) {
+            $employee     = Employee::find($employeeId);
+            $employeeName = $employee ? (User::find($employee->user_id)?->name) : null;
 
-            $employeeName = null;
-
-            if ($employee) {
-                $user = User::find($employee->user_id);
-                $employeeName = $user?->name;
-            }
-
-            // machine-wise grouping
             $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
-
                 $productions = $machineRows->map(function ($row) {
                     $totalLength = (float) ($row->total_length ?? 0);
                     $rate        = (float) ($row->amount_per_meter ?? 0);
@@ -329,7 +316,6 @@ class ProductionController extends Controller
 
                     $expectedAmount = $totalLength * $rate;
 
-                    // Sirf status = 4 (Owner Approved) par earned amount count hota hai
                     $earnedAmount = 0.0;
                     if ($status === 4) {
                         if ($row->earned_amount !== null && (float) $row->earned_amount > 0) {
@@ -351,7 +337,7 @@ class ProductionController extends Controller
                         'amount_per_meter'     => $rate,
                         'expected_amount'      => $expectedAmount,
                         'earned_amount'        => $earnedAmount,
-                        'amount'               => $earnedAmount, // backward compatibility
+                        'amount'               => $earnedAmount,
                         'select_days'          => $row->select_days,
                         'shift_start'          => $row->shift_start,
                         'shift_end'            => $row->shift_end,
@@ -372,24 +358,16 @@ class ProductionController extends Controller
                     'remaining_production' => $productions->sum('remaining_production'),
                     'expected_amount'      => $expectedTotal,
                     'earned_amount'        => $earnedTotal,
-                    'total_amount'         => $earnedTotal, // backward compatibility
+                    'total_amount'         => $earnedTotal,
                     'productions'          => $productions,
                 ];
             })->values();
 
-            // Total expected for all batches of this employee
-            $totalExpected = (float) $machineGroups->sum('expected_amount');
-
-            // Total earned from approved batches of this employee
-            $totalEarned = (float) $machineGroups->sum('earned_amount');
-
-            // Total already paid
-            $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
-
-            // Remaining payable amount
+            $totalExpected   = (float) $machineGroups->sum('expected_amount');
+            $totalEarned     = (float) $machineGroups->sum('earned_amount');
+            $totalPaid       = (float) ($paidAmounts[$employeeId] ?? 0);
             $remainingAmount = max(0, $totalEarned - $totalPaid);
 
-            // Date-wise payment history for this employee
             $paymentHistory = ($paymentRecords[$employeeId] ?? collect())->map(function ($payment) {
                 return [
                     'amount_paid' => (float) $payment->amount_paid,
@@ -402,39 +380,41 @@ class ProductionController extends Controller
                 'employee_name'    => $employeeName,
                 'factory_name'     => $factoryName,
                 'manager_name'     => $managerName,
-
-                // Payment summary
                 'total_expected'   => $totalExpected,
                 'total_amount'     => $totalEarned,
                 'total_earned'     => $totalEarned,
                 'total_paid'       => $totalPaid,
                 'remaining_amount' => $remainingAmount,
                 'payment_history'  => $paymentHistory,
-
                 'total_length'     => $machineGroups->sum('total_length'),
                 'machines'         => $machineGroups,
             ];
         })->values();
 
+        // NOTE: original file mein ye return missing tha (method close hi nahi hoti thi).
+        // Agar Flutter screen ko koi aur keys chahiye to yahan adjust karein.
         return response()->json([
-            'data'           => $grouped,
-            // Unique machines (ek machine par 2 employees hon to bhi 1 hi count hogi)
-            'total_machines' => $machineIds->count(),
-        ]);
+            'success'      => true,
+            'factory_id'   => (int) $factoryId,
+            'factory_name' => $factoryName,
+            'manager_name' => $managerName,
+            'data'         => $grouped,
+        ], 200);
     }
 
-    // Assign production (FIXED)
+    // Assign production
     public function assignProduction(Request $request)
     {
         $request->validate([
             'machine_id'       => 'required|integer',
-            'variety_type'     => 'required|string|exists:varieties,name',
+            'variety_type'     => 'required|string',
             'total_length'     => 'required|numeric|gt:0',
-            'amount_per_meter' => 'required|numeric|gt:0',
-            'alert_threshold'  => 'nullable|numeric|min:0|lte:total_length',
+            'amount_per_meter' => 'required|numeric|min:0',
+            // owner gets notified once a batch's remaining length drops to this
+            'alert_threshold'  => 'nullable|numeric|min:0',
         ]);
 
-        // assign batch to all employes that work on this machine
+        // assign batch to all employees that work on this machine
         $employeeIds = Production::where('machine_id', $request->machine_id)
             ->whereNotNull('employee_id')
             ->distinct()
@@ -486,13 +466,14 @@ class ProductionController extends Controller
 
             $created[] = $production; // append to the array for count() later
 
-            $user_Name = User::whereId($employee->user_id)->first();
+            $employeeName = User::find($employee->user_id)?->name ?? 'Employee';
+
             Notification::create([
                 'user_id'       => $employee->user_id,
                 'production_id' => $production->id,
                 'sender_id'     => Auth::user()->id,
                 'title'         => 'New Production assigned',
-                'message'       => "$user_Name->name assigned production by " . Auth::user()->name,
+                'message'       => "$employeeName assigned production by " . Auth::user()->name,
                 'type'          => 'production_assigned',
             ]);
         }
