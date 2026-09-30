@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
+  
     public function up(): void
     {
         Schema::create('payments', function (Blueprint $table) {
@@ -24,13 +22,13 @@ return new class extends Migration
                 ->constrained('users')
                 ->onDelete('cascade');
 
-            // ✅ NEW: kis production/batch ke liye ye payment hui
+            //..NEW: kis production/batch ke liye ye payment hui
             $table->foreignId('production_id')
                 ->nullable()
                 ->constrained('productions')
                 ->onDelete('set null');
 
-            $table->timestamps(); // ✅ created_at + updated_at dono is se ban jate hain
+            $table->timestamps(); //..created_at + updated_at dono is se ban jate hain
         });
     }
 

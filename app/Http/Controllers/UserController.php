@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Production;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Validator;
@@ -351,7 +352,7 @@ class UserController extends Controller
     }
 
     // Delete User
-    public function destroy($id)
+        public function destroy($id)
     {
         $user = User::find($id);
 
@@ -360,6 +361,15 @@ class UserController extends Controller
                 'success' => false,
                 'message' => 'User not found'
             ], 404);
+        }
+
+        $employee = DB::table('employees')->where('user_id', $user->id)->first();
+
+        if ($employee) {
+            DB::table('productions')->where('employee_id', $employee->id)->delete();
+            DB::table('payments')->where('employee_id', $employee->id)->delete();
+
+            DB::table('employees')->where('id', $employee->id)->delete();
         }
 
         $user->delete();

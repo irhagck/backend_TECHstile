@@ -101,12 +101,12 @@ class EmployeeController extends Controller
         Employee::where('user_id', $request->user_id)->delete();
 
         // then insert new record
-        $employee = Employee::create([
+        $employee = Employee::updateOrCreate([
             'factory_id' => $request->factory_id,
             'user_id' => $request->user_id,
             'shift_starttime' => $request->shift_starttime,
             'shift_endtime' => $request->shift_endtime,
-            'timestamp' => now(),
+        
         ]);
 
         return response()->json([
