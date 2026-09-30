@@ -1,0 +1,85 @@
+CREATE TABLE `productions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `batch_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `variety_type` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `total_length` decimal(10,2) DEFAULT NULL,
+  `ready_production` int DEFAULT NULL,
+  `machine_id` bigint unsigned DEFAULT NULL,
+  `employee_id` bigint unsigned DEFAULT NULL,
+  `factory_id` bigint unsigned DEFAULT NULL,
+  `manager_id` bigint unsigned DEFAULT NULL,
+  `shift_start` time DEFAULT NULL,
+  `shift_end` time DEFAULT NULL,
+  `status` tinyint NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `waste_production` double DEFAULT NULL,
+  `remaining` double DEFAULT NULL,
+  `alert_threshold` decimal(10,2) DEFAULT NULL,
+  `alert_sent` tinyint(1) NOT NULL DEFAULT '0',
+  `earned_amount` double DEFAULT NULL,
+  `amount_per_meter` float DEFAULT NULL,
+  `select_days` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`),
+  KEY `productions_batch_id_index` (`batch_id`),
+  KEY `fk_productions_machine` (`machine_id`),
+  KEY `fk_productions_employee` (`employee_id`),
+  KEY `fk_productions_factory` (`factory_id`),
+  KEY `fk_productions_manager` (`manager_id`),
+  CONSTRAINT `fk_productions_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_productions_factory` FOREIGN KEY (`factory_id`) REFERENCES `factories` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_productions_machine` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_productions_manager` FOREIGN KEY (`manager_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2109 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+CREATE TABLE `payments` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `amount_paid` decimal(12,2) NOT NULL,
+  `employee_id` bigint unsigned NOT NULL,
+  `user_id` bigint unsigned NOT NULL,
+  `production_id` bigint unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `payments_employee_id_foreign` (`employee_id`),
+  KEY `payments_user_id_foreign` (`user_id`),
+  KEY `payments_production_id_foreign` (`production_id`),
+  CONSTRAINT `payments_employee_id_foreign` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_production_id_foreign` FOREIGN KEY (`production_id`) REFERENCES `productions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=281 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+CREATE TABLE `employees` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `factory_id` bigint unsigned DEFAULT NULL,
+  `shift_starttime` time DEFAULT NULL,
+  `shift_endtime` time DEFAULT NULL,
+  `user_id` bigint unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+CREATE TABLE `machines` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `factory_id` bigint unsigned NOT NULL,
+  `machine_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `machine_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `time` datetime NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+
+CREATE TABLE `attendences` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `employee_id` bigint unsigned DEFAULT NULL,
+  `type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `machine_id` bigint unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_attendences_machine` (`machine_id`),
+  CONSTRAINT `fk_attendences_machine` FOREIGN KEY (`machine_id`) REFERENCES `machines` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+

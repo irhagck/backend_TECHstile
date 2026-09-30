@@ -238,12 +238,21 @@ class ProductionController extends Controller
     public function viewPayments($factoryId)
     {
         $authUser = auth('sanctum')->user() ?? auth()->user();
+    // view-payments
+    public function viewPayments($factoryId)
+    {
+        $authUser = auth('sanctum')->user() ?? auth()->user();
 
         $factory = Factory::find($factoryId);
         if (!$factory) {
             return response()->json(['message' => 'Factory not found'], 404);
         }
+        $factory = Factory::find($factoryId);
+        if (!$factory) {
+            return response()->json(['message' => 'Factory not found'], 404);
+        }
 
+        $factoryName = $factory->name;
         $factoryName = $factory->name;
 
         $managerName = null;
@@ -295,7 +304,13 @@ class ProductionController extends Controller
 
         // Get total paid amount for each employee
         $employeeIds = $records->pluck('employee_id')->filter()->unique();
+        // Get total paid amount for each employee
+        $employeeIds = $records->pluck('employee_id')->filter()->unique();
 
+        $paidAmounts = Payment::whereIn('employee_id', $employeeIds)
+            ->selectRaw('employee_id, SUM(amount_paid) as total_paid')
+            ->groupBy('employee_id')
+            ->pluck('total_paid', 'employee_id');
         $paidAmounts = Payment::whereIn('employee_id', $employeeIds)
             ->selectRaw('employee_id, SUM(amount_paid) as total_paid')
             ->groupBy('employee_id')
@@ -308,7 +323,17 @@ class ProductionController extends Controller
             ->get()
             ->groupBy('employee_id');
 
+        // Individual payment records, so the frontend can show the date each
+        // payment was made (not just the aggregated total).
+        $paymentRecords = Payment::whereIn('employee_id', $employeeIds)
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('employee_id');
 
+
+        // Fetch all machine names in a single query 
+        $machineIds = $records->pluck('machine_id')->filter()->unique();
+        $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
         // Fetch all machine names in a single query 
         $machineIds = $records->pluck('machine_id')->filter()->unique();
         $machines = Machine::whereIn('id', $machineIds)->pluck('machine_name', 'id');
@@ -321,14 +346,29 @@ class ProductionController extends Controller
         $paymentRecords
     ) {
         $employee = Employee::find($employeeId);
+        $grouped = $records->groupBy('employee_id')->map(function ($rows, $employeeId) use (
+        $machines,
+        $factoryName,
+        $managerName,
+        $paidAmounts,
+        $paymentRecords
+    ) {
+        $employee = Employee::find($employeeId);
 
+        $employeeName = null;
         $employeeName = null;
 
         if ($employee) {
             $user = User::find($employee->user_id);
             $employeeName = $user?->name;
         }
+        if ($employee) {
+            $user = User::find($employee->user_id);
+            $employeeName = $user?->name;
+        }
 
+        // machine-wise grouping
+        $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
         // machine-wise grouping
         $machineGroups = $rows->groupBy('machine_id')->map(function ($machineRows, $machineId) use ($machines) {
 
@@ -338,9 +378,25 @@ class ProductionController extends Controller
                 $ready       = (float) ($row->ready_production ?? 0);
                 $waste       = (float) ($row->waste_production ?? 0);
                 $status      = (int) ($row->status ?? 1);
+            $productions = $machineRows->map(function ($row) {
+                $totalLength = (float) ($row->total_length ?? 0);
+                $rate        = (float) ($row->amount_per_meter ?? 0);
+                $ready       = (float) ($row->ready_production ?? 0);
+                $waste       = (float) ($row->waste_production ?? 0);
+                $status      = (int) ($row->status ?? 1);
 
                 $expectedAmount = $totalLength * $rate;
+                $expectedAmount = $totalLength * $rate;
 
+                // Sirf status = 4 (Owner Approved) par earned amount count hota hai
+                $earnedAmount = 0.0;
+                if ($status === 4) {
+                    if ($row->earned_amount !== null && (float)$row->earned_amount > 0) {
+                        $earnedAmount = (float) $row->earned_amount;
+                    } else {
+                        $earnedAmount = $ready * $rate;
+                    }
+                }
                 // Sirf status = 4 (Owner Approved) par earned amount count hota hai
                 $earnedAmount = 0.0;
                 if ($status === 4) {
@@ -370,7 +426,28 @@ class ProductionController extends Controller
                     'created_at'           => $row->created_at,
                 ];
             })->values();
+                return [
+                    'production_id'        => $row->id,
+                    'batch_id'             => $row->batch_id,
+                    'variety_type'         => $row->variety_type,
+                    'status'               => $status,
+                    'total_length'         => $totalLength,
+                    'ready_production'     => (int) $ready,
+                    'waste_production'     => $waste,
+                    'remaining_production' => max(0, $totalLength - $ready - $waste),
+                    'amount_per_meter'     => $rate,
+                    'expected_amount'      => $expectedAmount,
+                    'earned_amount'        => $earnedAmount,
+                    'amount'               => $earnedAmount, // backward compatibility
+                    'select_days'          => $row->select_days,
+                    'shift_start'          => $row->shift_start,
+                    'shift_end'            => $row->shift_end,
+                    'created_at'           => $row->created_at,
+                ];
+            })->values();
 
+            $expectedTotal = (float) $productions->sum('expected_amount');
+            $earnedTotal   = (float) $productions->sum('earned_amount');
             $expectedTotal = (float) $productions->sum('expected_amount');
             $earnedTotal   = (float) $productions->sum('earned_amount');
 
@@ -388,16 +465,46 @@ class ProductionController extends Controller
                 'productions'          => $productions,
             ];
         })->values();
+            return [
+                'machine_id'           => $machineId ? (int) $machineId : null,
+                'machine_name'         => $machines[$machineId] ?? 'Unassigned',
+                'production_count'     => $productions->count(),
+                'total_length'         => $productions->sum('total_length'),
+                'ready_production'     => $productions->sum('ready_production'),
+                'waste_production'     => $productions->sum('waste_production'),
+                'remaining_production' => $productions->sum('remaining_production'),
+                'expected_amount'      => $expectedTotal,
+                'earned_amount'        => $earnedTotal,
+                'total_amount'         => $earnedTotal, // backward compatibility
+                'productions'          => $productions,
+            ];
+        })->values();
 
+        // Total expected for all batches of this employee
+        $totalExpected = (float) $machineGroups->sum('expected_amount');
         // Total expected for all batches of this employee
         $totalExpected = (float) $machineGroups->sum('expected_amount');
 
         // Total earned from approved batches of this employee
         $totalEarned = (float) $machineGroups->sum('earned_amount');
+        // Total earned from approved batches of this employee
+        $totalEarned = (float) $machineGroups->sum('earned_amount');
 
         // Total already paid
         $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
+        // Total already paid
+        $totalPaid = (float) ($paidAmounts[$employeeId] ?? 0);
 
+        // Remaining payable amount
+        $remainingAmount = max(0, $totalEarned - $totalPaid);
+
+        // Date-wise payment history for this employee
+        $paymentHistory = ($paymentRecords[$employeeId] ?? collect())->map(function ($payment) {
+            return [
+                'amount_paid' => (float) $payment->amount_paid,
+                'paid_date'   => $payment->created_at ? $payment->created_at->toDateTimeString() : null,
+            ];
+        })->values();
         // Remaining payable amount
         $remainingAmount = max(0, $totalEarned - $totalPaid);
 
@@ -414,7 +521,19 @@ class ProductionController extends Controller
             'employee_name'    => $employeeName,
             'factory_name'     => $factoryName,
             'manager_name'     => $managerName,
+        return [
+            'employee_id'      => (int) $employeeId,
+            'employee_name'    => $employeeName,
+            'factory_name'     => $factoryName,
+            'manager_name'     => $managerName,
 
+            // Payment summary
+            'total_expected'   => $totalExpected,
+            'total_amount'     => $totalEarned,
+            'total_earned'     => $totalEarned,
+            'total_paid'       => $totalPaid,
+            'remaining_amount' => $remainingAmount,
+            'payment_history'  => $paymentHistory,
             // Payment summary
             'total_expected'   => $totalExpected,
             'total_amount'     => $totalEarned,
@@ -429,6 +548,11 @@ class ProductionController extends Controller
      })->values();
 
 
+        return response()->json([
+            'data' => $grouped,
+        ]);
+    }
+    
         return response()->json([
             'data' => $grouped,
         ]);
